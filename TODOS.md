@@ -11,16 +11,69 @@ Currently `HallucinationFlag` checks if ANY tool call preceded a numeric claim. 
 - This would eliminate false positives from valid aggregation (e.g., `4.43 - 3.05 = 1.38`)
 
 ### Optional LLM-as-Judge Evaluator
-Add a pluggable `LLMJudgeEvaluator` that calls a dedicated CrewAI agent for nuanced assessment:
-- Configurable via `EvaluationSuite(llm_judge=True, judge_model="claude-sonnet-4-6")`
-- The judge agent receives the full trace + expectations and produces a structured verdict
-- Use cases where deterministic evaluators fall short:
-  - Semantic policy violation (paraphrased forbidden content)
-  - Output quality beyond substring matching
-  - Reasoning coherence across multi-step trajectories
-  - Detecting subtle hallucination vs. valid training-data recall
-- Trade-off: non-deterministic, adds latency and cost — should be opt-in, not default
-- Could use the mailbox pattern itself: AgentLens evaluates traces, and the judge is just another agent going through the proxy
+
+**Architecture decision:** The judge MUST be a native AgentLens evaluator, NOT a CrewAI agent or any external framework agent. Reason: if the judge were an agent going through the proxy, its own LLM calls would be captured as spans — polluting the trace being evaluated. Circular observation.
+
+The separation of concerns:
+```
+Proxy (observes)  ≠  Evaluation (judges)
+
+Proxy captures agent behavior → Trace JSON
+Evaluators analyze the trace → EvalResults
+
+The judge is an evaluator, not an agent.
+It calls the LLM directly (httpx → provider API), bypassing the proxy entirely.
+```
+
+Design:
+```python
+class LLMJudgeEvaluator:
+    """LLM-based evaluator for nuanced trace analysis.
+
+    Calls the LLM directly — NOT through the AgentLens proxy.
+    This is an evaluator (judges traces), not an agent (produces traces).
+    """
+    name = "llm_judge"
+    level = EvalLevel.RISK  # or configurable per-call
+
+    def __init__(
+        self,
+        model: str = "claude-sonnet-4-6",
+        base_url: str = "https://api.anthropic.com",
+        api_key: str | None = None,  # from env if None
+    ):
+        self._client = httpx.Client(base_url=base_url, ...)
+
+    def evaluate(self, trace: Trace, expected: TaskExpectation | None = None) -> list[EvalResult]:
+        # Serialize trace + expectations into a structured prompt
+        # Ask the LLM: "Analyze this agent trajectory for:
+        #   1. Are numeric claims grounded in tool results?
+        #   2. Are there subtle policy violations (paraphrased)?
+        #   3. Is the reasoning coherent across steps?
+        #   4. Overall quality assessment"
+        # Parse structured JSON response into EvalResult(s)
+        ...
+```
+
+Usage — opt-in, alongside deterministic evaluators:
+```python
+suite = EvaluationSuite()  # 12 deterministic evaluators by default
+suite.add_evaluator(LLMJudgeEvaluator(model="claude-sonnet-4-6"))
+# Now 13 evaluators: 12 instant/free + 1 LLM-based
+summary = suite.evaluate(trace, expected)
+```
+
+Use cases where deterministic evaluators fall short:
+- **Evidence grounding** — Is "France GDP is $3.05T" recalled from training or fabricated? The judge can cross-reference the claim against tool results with semantic understanding, not just regex
+- **Semantic policy violation** — Deterministic check catches "competitor products" literally. The judge catches "our rival's offering" or "the other platform"
+- **Reasoning coherence** — Did the agent's multi-step reasoning actually make sense, or did it reach the right answer through flawed logic?
+- **Output quality** — Beyond substring matching: is the final answer well-structured, complete, and appropriate for the task?
+
+Trade-offs (why it's opt-in, not default):
+- Non-deterministic — same trace may get different scores on different runs
+- Adds latency (2-5s per evaluation) and API cost
+- Requires an API key for the judge model
+- The deterministic evaluators cover 80% of cases — the judge is for the nuanced 20%
 
 ## Proxy Server Improvements
 
