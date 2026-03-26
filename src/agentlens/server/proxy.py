@@ -6,7 +6,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import httpx
 from fastapi import FastAPI, HTTPException
@@ -19,13 +19,16 @@ from agentlens.server.models import (
     ChatCompletionResponse,
     ChatMessage,
     Choice,
+    FinishReason,
+    MessageRole,
+    ServerMode,
     Usage,
 )
 from agentlens.server.wrapping import maybe_wrap_tool_calls
 
 
 def _canned_to_response(canned: CannedResponse, model: str) -> ChatCompletionResponse:
-    finish_reason: Literal["stop", "tool_calls"] = "tool_calls" if canned.tool_calls else "stop"
+    finish_reason = FinishReason.TOOL_CALLS if canned.tool_calls else FinishReason.STOP
     return ChatCompletionResponse(
         id=f"chatcmpl-{uuid.uuid4().hex[:8]}",
         created=int(datetime.now(UTC).timestamp()),
@@ -33,7 +36,7 @@ def _canned_to_response(canned: CannedResponse, model: str) -> ChatCompletionRes
         choices=[
             Choice(
                 message=ChatMessage(
-                    role="assistant",
+                    role=MessageRole.ASSISTANT,
                     content=canned.content or None,
                     tool_calls=None,  # raw dicts returned in .model_dump() below
                 ),
@@ -54,14 +57,14 @@ def _build_openai_response(
     usage: dict[str, int],
     model: str,
 ) -> ChatCompletionResponse:
-    finish_reason: Literal["stop", "tool_calls"] = "tool_calls" if tool_calls else "stop"
+    finish_reason = FinishReason.TOOL_CALLS if tool_calls else FinishReason.STOP
     return ChatCompletionResponse(
         id=f"chatcmpl-{uuid.uuid4().hex[:8]}",
         created=int(datetime.now(UTC).timestamp()),
         model=model,
         choices=[
             Choice(
-                message=ChatMessage(role="assistant", content=content or None),
+                message=ChatMessage(role=MessageRole.ASSISTANT, content=content or None),
                 finish_reason=finish_reason,
             )
         ],
@@ -74,7 +77,7 @@ def _build_openai_response(
 
 
 def create_app(
-    mode: Literal["mock", "proxy", "mailbox"] = "mock",
+    mode: ServerMode = ServerMode.MOCK,
     proxy_target: str | None = None,
     scenario: str = "happy_path",
     timeout: float = 300.0,
@@ -82,31 +85,34 @@ def create_app(
 ) -> FastAPI:
     app = FastAPI(title="AgentLens Proxy")
 
+    # Pyright reports nested FastAPI route handlers as unused functions.
+    # They are registered by @app.get/@app.post decorators at definition time.
     collector = TraceCollector(traces_dir=traces_dir)
     active_scenario: list[str] = [scenario]
-    mailbox: MailboxQueue | None = MailboxQueue(timeout=timeout) if mode == "mailbox" else None
+    mailbox: MailboxQueue | None = MailboxQueue(timeout=timeout) if mode == ServerMode.MAILBOX else None
 
     @app.get("/health")
-    async def health() -> dict[str, str]:  # type: ignore[reportUnusedFunction]
+    async def health() -> dict[str, str]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         return {"status": "ok", "mode": mode}
 
     @app.get("/v1/models")
-    async def list_models() -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
+    async def list_models() -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         return {
             "object": "list",
             "data": [{"id": "agentlens-mock", "object": "model", "created": 0, "owned_by": "agentlens"}],
         }
 
     @app.post("/v1/chat/completions")
-    async def chat_completions(request: ChatCompletionRequest) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
-        if mode == "mock":
+    async def chat_completions(request: ChatCompletionRequest) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
+        if mode == ServerMode.MOCK:
             canned = REGISTRY.next_response(active_scenario[0])
             response = _canned_to_response(canned, request.model)
             tool_calls_raw = canned.tool_calls
             content = canned.content
             usage = canned.usage
-        elif mode == "mailbox":
-            assert mailbox is not None
+        elif mode == ServerMode.MAILBOX:
+            if mailbox is None:
+                raise RuntimeError("Mailbox not initialized in mailbox mode")
             entry = mailbox.enqueue(
                 [m.model_dump() for m in request.messages],
                 request.model,
@@ -132,32 +138,33 @@ def create_app(
         return resp_dict
 
     @app.get("/traces")
-    async def list_traces() -> list[dict[str, Any]]:  # type: ignore[reportUnusedFunction]
+    async def list_traces() -> list[dict[str, Any]]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         return [t.model_dump(mode="json") for t in collector.traces]
 
     @app.get("/traces/{trace_id}")
-    async def get_trace(trace_id: str) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
+    async def get_trace(trace_id: str) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         match = collector.get_trace(trace_id)
         if match is None:
             raise HTTPException(status_code=404, detail=f"Trace {trace_id!r} not found")
         return match.model_dump(mode="json")
 
     @app.post("/traces/reset")
-    async def reset_traces() -> dict[str, str]:  # type: ignore[reportUnusedFunction]
+    async def reset_traces() -> dict[str, str]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         collector.reset()
         return {"status": "reset"}
 
     @app.post("/scenario/{name}")
-    async def switch_scenario(name: str) -> dict[str, str]:  # type: ignore[reportUnusedFunction]
-        if mode != "mock":
+    async def switch_scenario(name: str) -> dict[str, str]:  # type: ignore[reportUnusedFunction]  # FastAPI route
+        if mode != ServerMode.MOCK:
             raise HTTPException(status_code=400, detail="Scenario switching only available in mock mode")
         collector.reset()
         active_scenario[0] = name
         REGISTRY.reset(name)
         return {"status": "switched", "scenario": name}
 
-    if mode == "mailbox":
-        assert mailbox is not None
+    if mode == ServerMode.MAILBOX:
+        if mailbox is None:
+            raise RuntimeError("Mailbox not initialized in mailbox mode")
         _register_mailbox_endpoints(app, mailbox)
 
     return app
@@ -167,11 +174,11 @@ def _register_mailbox_endpoints(app: FastAPI, mailbox: MailboxQueue) -> None:
     """Register the four /mailbox endpoints onto the app."""
 
     @app.get("/mailbox/stats")
-    async def mailbox_stats() -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
+    async def mailbox_stats() -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         return mailbox.stats()
 
     @app.get("/mailbox")
-    async def list_mailbox() -> list[dict[str, Any]]:  # type: ignore[reportUnusedFunction]
+    async def list_mailbox() -> list[dict[str, Any]]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         now = time.time()
         result: list[dict[str, Any]] = []
         for entry in mailbox.list_pending():
@@ -190,7 +197,7 @@ def _register_mailbox_endpoints(app: FastAPI, mailbox: MailboxQueue) -> None:
         return result
 
     @app.get("/mailbox/{request_id}")
-    async def get_mailbox_entry(request_id: int) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
+    async def get_mailbox_entry(request_id: int) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         entry = mailbox.get_entry(request_id)
         if entry is None:
             raise HTTPException(status_code=404, detail=f"Request {request_id} not found")
@@ -226,7 +233,7 @@ def _register_mailbox_endpoints(app: FastAPI, mailbox: MailboxQueue) -> None:
         }
 
     @app.post("/mailbox/{request_id}")
-    async def submit_mailbox_response(request_id: int, body: dict[str, Any]) -> dict[str, str]:  # type: ignore[reportUnusedFunction]
+    async def submit_mailbox_response(request_id: int, body: dict[str, Any]) -> dict[str, str]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         if "response" in body:
             mb_response = MailboxResponse(content=body["response"])
         else:
@@ -264,14 +271,14 @@ async def _proxy_request(
         "prompt_tokens": int(raw_usage.get("prompt_tokens", 0)),
         "completion_tokens": int(raw_usage.get("completion_tokens", 0)),
     }
-    finish_reason: Literal["stop", "tool_calls"] = "tool_calls" if tool_calls_raw else "stop"
+    finish_reason = FinishReason.TOOL_CALLS if tool_calls_raw else FinishReason.STOP
     response = ChatCompletionResponse(
         id=data.get("id", f"chatcmpl-{uuid.uuid4().hex[:8]}"),
         created=data.get("created", int(datetime.now(UTC).timestamp())),
         model=data.get("model", request.model),
         choices=[
             Choice(
-                message=ChatMessage(role="assistant", content=content or None),
+                message=ChatMessage(role=MessageRole.ASSISTANT, content=content or None),
                 finish_reason=finish_reason,
             )
         ],

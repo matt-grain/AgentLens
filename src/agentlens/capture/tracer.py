@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any, Self
+from typing import Any, Self
 
 from agentlens.models.trace import Span, SpanStatus, SpanType, TokenUsage, Trace
-
-if TYPE_CHECKING:
-    pass
 
 
 class SpanBuilder:
@@ -134,7 +131,8 @@ class Tracer:
     def get_trace(self) -> Trace:
         if self._completed_at is None:
             raise RuntimeError("Tracer must be used as a context manager and exited before calling get_trace()")
-        assert self._started_at is not None
+        if self._started_at is None:
+            raise RuntimeError("Tracer was not entered as context manager")
         return Trace(
             id=self._trace_id,
             task=self._task,

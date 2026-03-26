@@ -2,36 +2,33 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
 from agentlens.engine import EvaluationSuite
 from agentlens.models.evaluation import EvalLevel, EvalResult, EvalSeverity
 from agentlens.models.expectation import TaskExpectation
-from agentlens.models.trace import Span, SpanStatus, SpanType, TokenUsage, Trace
-
-_BASE = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
+from agentlens.models.trace import SpanType, TokenUsage, Trace
+from tests.test_evaluators.conftest import make_span, make_trace
 
 
 def _make_trace() -> Trace:
-    span = Span(
-        id="s1",
-        span_type=SpanType.LLM_CALL,
-        name="plan",
-        input={"messages": []},
+    span = make_span(
+        "s1",
+        SpanType.LLM_CALL,
+        "plan",
+        inp={"messages": []},
         output={"content": "done"},
-        status=SpanStatus.SUCCESS,
-        start_time=_BASE,
-        end_time=_BASE + timedelta(milliseconds=500),
+        duration_ms=500,
         token_usage=TokenUsage(input_tokens=50, output_tokens=25),
     )
+    trace = make_trace([span], task="test task", total_duration_ms=500)
+    # Override the id and agent_name to match original test expectations
     return Trace(
         id="trace001",
         task="test task",
         agent_name="test-agent",
         spans=[span],
         final_output="done",
-        started_at=_BASE,
-        completed_at=_BASE + timedelta(milliseconds=500),
+        started_at=trace.started_at,
+        completed_at=trace.completed_at,
     )
 
 

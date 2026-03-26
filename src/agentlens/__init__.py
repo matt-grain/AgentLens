@@ -1,5 +1,7 @@
 """AgentLens — Trajectory-first agent evaluation framework."""
 
+from __future__ import annotations
+
 from agentlens.capture.tracer import Tracer
 from agentlens.engine import EvaluationSuite
 from agentlens.evaluators import Evaluator

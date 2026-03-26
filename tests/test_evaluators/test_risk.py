@@ -2,55 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-from typing import Any
-
 from agentlens.evaluators.risk import HallucinationFlagEvaluator, PolicyViolationEvaluator, UnauthorizedActionDetector
 from agentlens.models.evaluation import EvalSeverity
 from agentlens.models.expectation import TaskExpectation
-from agentlens.models.trace import Span, SpanStatus, SpanType, Trace
-
-_BASE = datetime(2024, 1, 1, 12, 0, 0, tzinfo=UTC)
-
-
-def _span(
-    sid: str,
-    span_type: SpanType,
-    name: str,
-    output: dict[str, Any] | None = None,
-    offset_ms: int = 0,
-) -> Span:
-    start = _BASE + timedelta(milliseconds=offset_ms)
-    return Span(
-        id=sid,
-        span_type=span_type,
-        name=name,
-        input={},
-        output=output or {},
-        status=SpanStatus.SUCCESS,
-        start_time=start,
-        end_time=start + timedelta(milliseconds=100),
-    )
-
-
-def _trace(spans: list[Span]) -> Trace:
-    end = spans[-1].end_time if spans else _BASE
-    return Trace(
-        id="t1",
-        task="test",
-        agent_name="agent",
-        spans=spans,
-        final_output="done",
-        started_at=_BASE,
-        completed_at=end,
-    )
+from agentlens.models.trace import SpanType
+from tests.test_evaluators.conftest import make_span, make_trace
 
 
 class TestUnauthorizedActionDetector:
     def test_unauthorized_action_forbidden_tool_critical(self) -> None:
         # Arrange
-        spans = [_span("s1", SpanType.TOOL_CALL, "send_email")]
-        trace = _trace(spans)
+        spans = [make_span("s1", SpanType.TOOL_CALL, "send_email")]
+        trace = make_trace(spans)
         expected = TaskExpectation(forbidden_tools=["send_email"])
         ev = UnauthorizedActionDetector()
 
@@ -64,8 +27,8 @@ class TestUnauthorizedActionDetector:
 
     def test_unauthorized_action_no_forbidden_passes(self) -> None:
         # Arrange
-        spans = [_span("s1", SpanType.TOOL_CALL, "search")]
-        trace = _trace(spans)
+        spans = [make_span("s1", SpanType.TOOL_CALL, "search")]
+        trace = make_trace(spans)
         expected = TaskExpectation(forbidden_tools=["send_email"])
         ev = UnauthorizedActionDetector()
 
@@ -81,9 +44,14 @@ class TestHallucinationFlagEvaluator:
     def test_hallucination_flag_unverified_number_critical(self) -> None:
         # Arrange: LLM claims a number without a preceding tool call
         spans = [
-            _span("s1", SpanType.LLM_CALL, "respond", output={"content": "The company earned $5 million last year."}),
+            make_span(
+                "s1",
+                SpanType.LLM_CALL,
+                "respond",
+                output={"content": "The company earned $5 million last year."},
+            ),
         ]
-        trace = _trace(spans)
+        trace = make_trace(spans)
         ev = HallucinationFlagEvaluator()
 
         # Act
@@ -96,10 +64,10 @@ class TestHallucinationFlagEvaluator:
     def test_hallucination_flag_number_after_search_passes(self) -> None:
         # Arrange: TOOL_CALL precedes the LLM span with numeric claim
         spans = [
-            _span("s1", SpanType.TOOL_CALL, "search", output={"result": "revenue data"}, offset_ms=0),
-            _span("s2", SpanType.LLM_CALL, "respond", output={"content": "Revenue was $5 million."}, offset_ms=100),
+            make_span("s1", SpanType.TOOL_CALL, "search", output={"result": "revenue data"}, offset_ms=0),
+            make_span("s2", SpanType.LLM_CALL, "respond", output={"content": "Revenue was $5 million."}, offset_ms=100),
         ]
-        trace = _trace(spans)
+        trace = make_trace(spans)
         ev = HallucinationFlagEvaluator()
 
         # Act
@@ -112,9 +80,9 @@ class TestHallucinationFlagEvaluator:
     def test_hallucination_flag_clean_passes(self) -> None:
         # Arrange
         spans = [
-            _span("s1", SpanType.LLM_CALL, "respond", output={"content": "The sky is blue."}),
+            make_span("s1", SpanType.LLM_CALL, "respond", output={"content": "The sky is blue."}),
         ]
-        trace = _trace(spans)
+        trace = make_trace(spans)
         ev = HallucinationFlagEvaluator()
 
         # Act
@@ -129,9 +97,9 @@ class TestPolicyViolationEvaluator:
     def test_policy_violation_detected(self) -> None:
         # Arrange
         spans = [
-            _span("s1", SpanType.LLM_CALL, "respond", output={"content": "Sure, I can help you with that bomb."}),
+            make_span("s1", SpanType.LLM_CALL, "respond", output={"content": "Sure, I can help you with that bomb."}),
         ]
-        trace = _trace(spans)
+        trace = make_trace(spans)
         expected = TaskExpectation(policies=["bomb"])
         ev = PolicyViolationEvaluator()
 
@@ -146,9 +114,9 @@ class TestPolicyViolationEvaluator:
     def test_policy_violation_clean(self) -> None:
         # Arrange
         spans = [
-            _span("s1", SpanType.LLM_CALL, "respond", output={"content": "Here is the weather forecast."}),
+            make_span("s1", SpanType.LLM_CALL, "respond", output={"content": "Here is the weather forecast."}),
         ]
-        trace = _trace(spans)
+        trace = make_trace(spans)
         expected = TaskExpectation(policies=["bomb", "credit card"])
         ev = PolicyViolationEvaluator()
 
@@ -161,8 +129,8 @@ class TestPolicyViolationEvaluator:
 
     def test_policy_violation_no_policies_passes(self) -> None:
         # Arrange
-        spans = [_span("s1", SpanType.LLM_CALL, "respond", output={"content": "anything"})]
-        trace = _trace(spans)
+        spans = [make_span("s1", SpanType.LLM_CALL, "respond", output={"content": "anything"})]
+        trace = make_trace(spans)
         ev = PolicyViolationEvaluator()
 
         # Act

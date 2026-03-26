@@ -2,9 +2,31 @@
 
 from __future__ import annotations
 
+from enum import StrEnum, unique
 from typing import Any, Literal
 
 from pydantic import BaseModel
+
+
+@unique
+class ServerMode(StrEnum):
+    MOCK = "mock"
+    PROXY = "proxy"
+    MAILBOX = "mailbox"
+
+
+@unique
+class FinishReason(StrEnum):
+    STOP = "stop"
+    TOOL_CALLS = "tool_calls"
+
+
+@unique
+class MessageRole(StrEnum):
+    SYSTEM = "system"
+    USER = "user"
+    ASSISTANT = "assistant"
+    TOOL = "tool"
 
 
 class ToolFunction(BaseModel):
@@ -19,7 +41,7 @@ class ToolCall(BaseModel):
 
 
 class ChatMessage(BaseModel):
-    role: Literal["system", "user", "assistant", "tool"]
+    role: MessageRole
     content: str | None = None
     tool_calls: list[ToolCall] | None = None
     tool_call_id: str | None = None
@@ -42,7 +64,7 @@ class Usage(BaseModel):
 class Choice(BaseModel):
     index: int = 0
     message: ChatMessage
-    finish_reason: Literal["stop", "tool_calls"] = "stop"
+    finish_reason: FinishReason = FinishReason.STOP
 
 
 class ChatCompletionResponse(BaseModel):

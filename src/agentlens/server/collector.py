@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from agentlens.models.trace import Span, SpanStatus, SpanType, TokenUsage, Trace
-from agentlens.server.models import ChatMessage
+from agentlens.server.models import ChatMessage, MessageRole
 
 
 def _new_id() -> str:
@@ -26,7 +26,7 @@ def _build_llm_span(
     usage: dict[str, int],
     llm_span_id: str,
 ) -> Span:
-    last_user = next((m.content for m in reversed(messages) if m.role == "user"), "")
+    last_user = next((m.content for m in reversed(messages) if m.role == MessageRole.USER), "")
     token_usage = TokenUsage(
         input_tokens=usage.get("prompt_tokens", 0),
         output_tokens=usage.get("completion_tokens", 0),
@@ -85,7 +85,7 @@ class TraceCollector:
         usage: dict[str, int],
     ) -> None:
         if not self.current_spans:
-            first_user = next((m.content for m in messages if m.role == "user"), None)
+            first_user = next((m.content for m in messages if m.role == MessageRole.USER), None)
             self.current_task = first_user or "unknown"
 
         llm_span_id = _new_id()

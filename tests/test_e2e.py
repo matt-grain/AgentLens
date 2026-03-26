@@ -6,11 +6,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
 from starlette.testclient import TestClient
 
 from agentlens.engine import EvaluationSuite
 from agentlens.models.evaluation import EvalSummary
 from agentlens.report import generate_html_report
+from agentlens.server.models import ServerMode
 from agentlens.server.proxy import create_app
 
 _PROJECT_ROOT = Path(__file__).parent.parent
@@ -44,6 +46,7 @@ def test_e2e_fixture_demo_all_scenarios_returns_eval_summary() -> None:
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.e2e
 def test_e2e_cli_demo_command_exits_zero() -> None:
     """uv run agentlens demo must complete without error."""
     result = subprocess.run(
@@ -56,6 +59,7 @@ def test_e2e_cli_demo_command_exits_zero() -> None:
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
 
 
+@pytest.mark.e2e
 def test_e2e_cli_evaluate_command_exits_zero() -> None:
     """uv run agentlens evaluate <fixture> must complete without error."""
     result = subprocess.run(
@@ -104,7 +108,7 @@ def test_e2e_proxy_mock_mode_captures_trace() -> None:
     # so that other tests that share the module-level REGISTRY singleton are unaffected.
     REGISTRY.reset("happy_path")
     try:
-        client = TestClient(create_app(mode="mock", scenario="happy_path"))
+        client = TestClient(create_app(mode=ServerMode.MOCK, scenario="happy_path"))
 
         payload = {
             "model": "agentlens-mock",

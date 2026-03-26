@@ -1,5 +1,7 @@
 """Data models for traces and evaluations."""
 
+from __future__ import annotations
+
 from agentlens.models.evaluation import EvalLevel, EvalResult, EvalSeverity, EvalSummary
 from agentlens.models.expectation import TaskExpectation
 from agentlens.models.trace import Span, SpanStatus, SpanType, TokenUsage, Trace

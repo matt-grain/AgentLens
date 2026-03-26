@@ -121,7 +121,7 @@ class LoopDetector:
         ]
 
     def _fingerprint(self, span: Span) -> tuple[str, str, str]:
-        h = hashlib.md5(  # noqa: S324
+        h = hashlib.md5(  # noqa: S324  # MD5 for non-crypto fingerprinting
             json.dumps(span.input, sort_keys=True).encode(), usedforsecurity=False
         ).hexdigest()[:8]
         return (span.span_type, span.name, h)

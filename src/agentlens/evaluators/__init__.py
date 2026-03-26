@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import Protocol
 
 from agentlens.models.evaluation import EvalLevel, EvalResult
 from agentlens.models.expectation import TaskExpectation
 from agentlens.models.trace import Trace
-
-if TYPE_CHECKING:
-    pass
 
 
 class Evaluator(Protocol):

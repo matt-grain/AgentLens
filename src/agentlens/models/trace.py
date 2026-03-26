@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, unique
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
+@unique
 class SpanType(StrEnum):
     LLM_CALL = "llm_call"
     TOOL_CALL = "tool_call"
@@ -15,6 +16,7 @@ class SpanType(StrEnum):
     ESCALATION = "escalation"
 
 
+@unique
 class SpanStatus(StrEnum):
     SUCCESS = "success"
     FAILURE = "failure"

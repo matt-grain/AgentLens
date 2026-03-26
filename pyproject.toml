@@ -4,13 +4,13 @@ version = "0.1.0"
 description = "Trajectory-first agent evaluation framework"
 requires-python = ">=3.13"
 dependencies = [
-    "pydantic>=2.0",
-    "rich>=13.0.0",
-    "typer[all]>=0.9.0",
-    "jinja2>=3.1.0",
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "httpx>=0.27.0",
+    "pydantic>=2.0,<3",
+    "rich>=13.0.0,<14",
+    "typer[all]>=0.9.0,<1",
+    "jinja2>=3.1.0,<4",
+    "fastapi>=0.115.0,<1",
+    "uvicorn[standard]>=0.32.0,<1",
+    "httpx>=0.27.0,<1",
 ]
 
 [project.optional-dependencies]
@@ -32,6 +32,7 @@ packages = ["src/agentlens"]
 [tool.pytest.ini_options]
 asyncio_mode = "strict"
 pythonpath = ["."]
+markers = ["e2e: end-to-end tests requiring subprocess"]
 
 [tool.ruff]
 target-version = "py313"

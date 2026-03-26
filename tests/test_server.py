@@ -5,12 +5,13 @@ from __future__ import annotations
 import pytest
 from starlette.testclient import TestClient
 
+from agentlens.server.models import ServerMode
 from agentlens.server.proxy import create_app
 
 
 @pytest.fixture
 def test_client() -> TestClient:
-    app = create_app(mode="mock", scenario="happy_path")
+    app = create_app(mode=ServerMode.MOCK, scenario="happy_path")
     return TestClient(app)
 
 

@@ -42,7 +42,7 @@ def demo(
 
     from agentlens.engine import EvaluationSuite
     from agentlens.report import generate_html_report, print_report
-    from demo.scenarios import SCENARIOS, load_scenario  # type: ignore[import-untyped]
+    from demo.scenarios import SCENARIOS, load_scenario  # type: ignore[import-untyped]  # demo/ is unpackaged
 
     names = list(SCENARIOS.keys()) if scenario == "all" else [scenario]
     suite = EvaluationSuite()
@@ -107,22 +107,18 @@ def serve(
     ] = Path("traces"),
 ) -> None:
     """Start the AgentLens proxy server."""
-    from typing import Literal
-
     import uvicorn
 
+    from agentlens.server.models import ServerMode
     from agentlens.server.proxy import create_app
 
-    server_mode: Literal["mock", "proxy", "mailbox"] = (
-        "mailbox" if mode == "mailbox" else ("proxy" if mode == "proxy" else "mock")
-    )
     if traces_dir is not None:
         typer.echo(f"Traces will be saved to: {traces_dir.resolve()}")
     fastapi_app = create_app(
-        mode=server_mode,
+        mode=ServerMode(mode),
         proxy_target=proxy_to,
         scenario=scenario,
         timeout=timeout,
         traces_dir=traces_dir,
     )
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)  # noqa: S104
+    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)  # noqa: S104  # dev proxy binds all interfaces

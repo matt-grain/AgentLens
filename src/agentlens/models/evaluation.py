@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import StrEnum, unique
 from typing import Any
 
 from pydantic import BaseModel, Field
 
 
+@unique
 class EvalLevel(StrEnum):
     BUSINESS = "business"
     BEHAVIOR = "behavior"
@@ -14,6 +15,7 @@ class EvalLevel(StrEnum):
     OPERATIONAL = "operational"
 
 
+@unique
 class EvalSeverity(StrEnum):
     INFO = "info"
     WARNING = "warning"

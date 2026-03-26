@@ -6,11 +6,11 @@ from pathlib import Path
 
 from agentlens.models.trace import SpanType, Trace
 from agentlens.server.collector import TraceCollector
-from agentlens.server.models import ChatMessage
+from agentlens.server.models import ChatMessage, MessageRole
 
 
 def _make_messages(user_content: str = "hello") -> list[ChatMessage]:
-    return [ChatMessage(role="user", content=user_content)]
+    return [ChatMessage(role=MessageRole.USER, content=user_content)]
 
 
 def _make_usage(prompt: int = 10, completion: int = 5) -> dict[str, int]:
