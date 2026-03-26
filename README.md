@@ -10,6 +10,8 @@ Most people evaluate LLM agents like chatbots — check the final answer and mov
 
 AgentLens evaluates the **full trajectory** at four levels: business goals, behavioral efficiency, risk, and operational performance. All 12 evaluators are deterministic — no LLM-as-judge, instant results, zero cost.
 
+![Pharma example](https://github.com/matt-grain/AgentLens/blob/main/examples/pharma_pipeline/report_screenshot.png?raw=true)
+
 ## Quick Start
 
 ```bash
