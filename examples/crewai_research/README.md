@@ -74,3 +74,14 @@ uv run python examples/crewai_research/run.py
 
 The same evaluation code works without any changes — traces now contain real
 token counts, latency data, and actual model responses.
+
+## Using with Mailbox Mode
+
+Instead of mock responses, you can use a real LLM brain via the mailbox:
+
+1. Start proxy in mailbox mode: `uv run agentlens serve --mode mailbox`
+2. In another terminal, start a brain: `uv run python examples/mailbox_brain/brain.py`
+   (or use Claude Code as the brain — see `examples/mailbox_brain/README.md`)
+3. Run this script: `uv run python examples/crewai_research/run.py`
+
+The brain answers each LLM call, and AgentLens captures the full trajectory for evaluation.
