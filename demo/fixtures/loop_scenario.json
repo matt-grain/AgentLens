@@ -1,0 +1,90 @@
+{
+  "id": "trace_loop_001",
+  "task": "What was the GDP of France in 2023 and how does it compare to Germany?",
+  "agent_name": "research-assistant",
+  "started_at": "2026-03-26T10:01:00Z",
+  "completed_at": "2026-03-26T10:01:04.500Z",
+  "final_output": "Based on my research, France's GDP in 2023 was approximately $3.05 trillion.",
+  "spans": [
+    {
+      "id": "span_loop_001",
+      "span_type": "llm_call",
+      "name": "plan",
+      "input": {"messages": ["What was the GDP of France in 2023 and how does it compare to Germany?"]},
+      "output": {"content": "I'll search for France GDP data.", "tool_calls": []},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:00Z",
+      "end_time": "2026-03-26T10:01:00.300Z",
+      "token_usage": {"input_tokens": 50, "output_tokens": 25},
+      "metadata": {}
+    },
+    {
+      "id": "span_loop_002",
+      "span_type": "tool_call",
+      "name": "search",
+      "input": {"query": "France GDP 2023"},
+      "output": {"result": "France GDP 2023: $3.05 trillion"},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:00.300Z",
+      "end_time": "2026-03-26T10:01:00.400Z",
+      "metadata": {}
+    },
+    {
+      "id": "span_loop_003",
+      "span_type": "tool_call",
+      "name": "search",
+      "input": {"query": "France GDP 2023"},
+      "output": {"result": "France GDP 2023: $3.05 trillion"},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:00.400Z",
+      "end_time": "2026-03-26T10:01:00.500Z",
+      "metadata": {}
+    },
+    {
+      "id": "span_loop_004",
+      "span_type": "tool_call",
+      "name": "search",
+      "input": {"query": "France GDP 2023"},
+      "output": {"result": "France GDP 2023: $3.05 trillion"},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:00.500Z",
+      "end_time": "2026-03-26T10:01:00.600Z",
+      "metadata": {}
+    },
+    {
+      "id": "span_loop_005",
+      "span_type": "llm_call",
+      "name": "retry_plan",
+      "input": {"messages": ["The search results are not helpful. Try a different query."]},
+      "output": {"content": "Let me try a different approach", "tool_calls": []},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:00.600Z",
+      "end_time": "2026-03-26T10:01:01.100Z",
+      "token_usage": {"input_tokens": 60, "output_tokens": 20},
+      "metadata": {}
+    },
+    {
+      "id": "span_loop_006",
+      "span_type": "tool_call",
+      "name": "search",
+      "input": {"query": "GDP France 2023 worldbank"},
+      "output": {"result": "World Bank data: France GDP 2023 = 3.049 trillion USD"},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:01.100Z",
+      "end_time": "2026-03-26T10:01:01.200Z",
+      "metadata": {}
+    },
+    {
+      "id": "span_loop_007",
+      "span_type": "llm_call",
+      "name": "synthesize",
+      "input": {"messages": ["Summarize findings"]},
+      "output": {"content": "Based on my research, France's GDP in 2023 was approximately $3.05 trillion.", "tool_calls": []},
+      "status": "success",
+      "start_time": "2026-03-26T10:01:01.200Z",
+      "end_time": "2026-03-26T10:01:01.700Z",
+      "token_usage": {"input_tokens": 70, "output_tokens": 30},
+      "metadata": {}
+    }
+  ]
+}

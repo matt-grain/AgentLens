@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentLens Report — {{ trace.agent_name }}</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; }
+  .container { max-width: 960px; margin: 0 auto; padding: 2rem 1rem; }
+  h1 { font-size: 1.75rem; font-weight: 700; color: #f8fafc; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.1rem; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 1rem; }
+  .meta { color: #64748b; font-size: 0.875rem; margin-bottom: 2rem; }
+  .meta span { margin-right: 1.5rem; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .card { background: #1e293b; border-radius: 0.5rem; padding: 1.25rem; border-left: 4px solid; }
+  .card.pass { border-color: #22c55e; }
+  .card.warn { border-color: #eab308; }
+  .card.fail { border-color: #ef4444; }
+  .card-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin-bottom: 0.25rem; }
+  .card-score { font-size: 2rem; font-weight: 700; }
+  .card.pass .card-score { color: #22c55e; }
+  .card.warn .card-score { color: #eab308; }
+  .card.fail .card-score { color: #ef4444; }
+  .overall { background: #1e293b; border-radius: 0.5rem; padding: 1.5rem; margin-bottom: 2rem; display: flex; align-items: center; gap: 1.5rem; }
+  .overall-label { font-size: 0.875rem; color: #64748b; }
+  .overall-score { font-size: 3rem; font-weight: 700; }
+  .overall-score.pass { color: #22c55e; }
+  .overall-score.warn { color: #eab308; }
+  .overall-score.fail { color: #ef4444; }
+  .section { margin-bottom: 2rem; }
+  details { background: #1e293b; border-radius: 0.5rem; overflow: hidden; margin-bottom: 0.5rem; }
+  summary { padding: 0.875rem 1rem; cursor: pointer; display: flex; align-items: center; gap: 0.75rem; font-size: 0.9rem; }
+  summary:hover { background: #263144; }
+  .badge { font-size: 0.7rem; padding: 0.1rem 0.5rem; border-radius: 9999px; font-weight: 600; }
+  .badge-llm { background: #1d4ed8; color: #bfdbfe; }
+  .badge-tool { background: #065f46; color: #a7f3d0; }
+  .badge-other { background: #4b5563; color: #d1d5db; }
+  .span-icon { font-size: 1rem; }
+  .span-icon.ok { color: #22c55e; }
+  .span-icon.warn { color: #eab308; }
+  .span-icon.fail { color: #ef4444; }
+  .span-duration { margin-left: auto; color: #475569; font-size: 0.8rem; }
+  .span-detail { padding: 0.75rem 1rem 1rem; border-top: 1px solid #334155; font-size: 0.8rem; color: #94a3b8; }
+  .span-detail pre { background: #0f172a; padding: 0.5rem; border-radius: 0.25rem; overflow-x: auto; font-size: 0.75rem; color: #cbd5e1; }
+  .result-row { background: #1e293b; border-radius: 0.375rem; padding: 0.75rem 1rem; margin-bottom: 0.5rem; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.5rem; }
+  .result-name { font-weight: 600; font-size: 0.9rem; }
+  .result-level { font-size: 0.75rem; color: #64748b; }
+  .result-score { margin-left: auto; font-weight: 700; }
+  .result-score.pass { color: #22c55e; }
+  .result-score.warn { color: #eab308; }
+  .result-score.fail { color: #ef4444; }
+  .result-msg { width: 100%; font-size: 0.8rem; color: #94a3b8; }
+  .evidence { font-size: 0.75rem; color: #64748b; margin-top: 0.25rem; list-style: none; }
+  .evidence li::before { content: "• "; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #1e293b; font-size: 0.75rem; color: #475569; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>AgentLens Evaluation Report</h1>
+  <p class="meta">
+    <span><strong>Task:</strong> {{ summary.task }}</span>
+    <span><strong>Agent:</strong> {{ trace.agent_name }}</span>
+    <span><strong>Trace:</strong> {{ trace.id }}</span>
+    <span><strong>Duration:</strong> {{ trace.duration_ms }}ms</span>
+    <span><strong>Steps:</strong> {{ trace.spans | length }}</span>
+  </p>
+
+  {# Overall score #}
+  {% set ov_class = score_class(summary.overall_score) %}
+  <div class="overall">
+    <div>
+      <div class="overall-label">Overall Score</div>
+      <div class="overall-score {{ ov_class }}">{{ score_pct(summary.overall_score) }}</div>
+    </div>
+    <div style="color:#64748b;font-size:0.85rem;">
+      {% if summary.passed %}All evaluators passed.{% else %}{{ summary.critical_failures | length }} critical failure(s).{% endif %}
+    </div>
+  </div>
+
+  {# Level score cards #}
+  <div class="section">
+    <h2>Level Scores</h2>
+    <div class="cards">
+      {% for level in level_order %}
+        {% if level in summary.level_scores %}
+          {% set score = summary.level_scores[level] %}
+          {% set cls = score_class(score) %}
+          <div class="card {{ cls }}">
+            <div class="card-label">{{ level.value }}</div>
+            <div class="card-score">{{ score_pct(score) }}</div>
+          </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {# Trajectory timeline #}
+  <div class="section">
+    <h2>Trajectory Timeline</h2>
+    {% for span in trace.spans %}
+      {% set is_llm = span.span_type.value == "llm_call" %}
+      {% set status_cls = "ok" if span.status.value == "success" else ("fail" if span.status.value == "failure" else "warn") %}
+      {% set icon = "✓" if span.status.value == "success" else ("✗" if span.status.value == "failure" else "⚠") %}
+      <details>
+        <summary>
+          <span class="span-icon {{ status_cls }}">{{ icon }}</span>
+          {% if is_llm %}
+            <span class="badge badge-llm">LLM</span>
+          {% else %}
+            <span class="badge badge-tool">TOOL</span>
+          {% endif %}
+          <strong>{{ span.name }}</strong>
+          <span class="span-duration">{{ span.duration_ms }}ms</span>
+        </summary>
+        <div class="span-detail">
+          <p><strong>Input:</strong></p>
+          <pre>{{ span.input | tojson(indent=2) }}</pre>
+          {% if span.output %}
+            <p style="margin-top:0.5rem"><strong>Output:</strong></p>
+            <pre>{{ span.output | tojson(indent=2) }}</pre>
+          {% endif %}
+          {% if span.token_usage %}
+            <p style="margin-top:0.5rem;color:#64748b">Tokens: {{ span.token_usage.input_tokens }} in / {{ span.token_usage.output_tokens }} out</p>
+          {% endif %}
+        </div>
+      </details>
+    {% endfor %}
+  </div>
+
+  {# Detailed evaluator results #}
+  <div class="section">
+    <h2>Evaluator Results</h2>
+    {% for result in summary.results %}
+      {% set cls = score_class(result.score) %}
+      <div class="result-row">
+        <span class="result-name">{{ result.evaluator_name }}</span>
+        <span class="result-level">{{ result.level.value }}</span>
+        <span class="result-score {{ cls }}">{{ score_pct(result.score) }}</span>
+        <span class="result-msg">{{ result.message }}</span>
+        {% if result.evidence %}
+          <ul class="evidence">
+            {% for ev in result.evidence %}
+              <li>{{ ev }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <footer>
+    Generated by AgentLens &mdash; {{ summary.timestamp.strftime("%Y-%m-%d %H:%M:%S UTC") }}
+  </footer>
+</div>
+</body>
+</html>
