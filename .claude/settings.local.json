@@ -23,7 +23,14 @@
       "Bash(.venv/Scripts/pytest.exe tests/ -v)",
       "Bash(.venv/Scripts/pyright.exe .)",
       "Bash(.venv/Scripts/python.exe -m pyright . --outputjson)",
-      "Bash(.venv/Scripts/python.exe -c \":*)"
+      "Bash(.venv/Scripts/python.exe -c \":*)",
+      "Bash(python3:*)",
+      "Bash(for f:*)",
+      "Bash(do)",
+      "Read(//c/Projects/AgentLens/**)",
+      "Bash(done)",
+      "Bash(mkdir -p /c/Projects/AgentLens/demo/fixtures)",
+      "Bash(mkdir -p /c/Projects/AgentLens/src/agentlens/report/templates)"
     ]
   }
 }
