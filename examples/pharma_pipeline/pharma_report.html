@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AgentLens Report — agentlens-proxy</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep:        #101114;
+    --bg-surface:     #16181c;
+    --bg-elevated:    #1e2025;
+    --bg-hover:       #282a30;
+    --border:         #363840;
+    --text-primary:   #f0f1f3;
+    --text-secondary: #c2c4c9;
+    --text-tertiary:  #9a9da5;
+    --text-muted:     #7d808a;
+    --accent:         #E86F33;
+    --accent-dim:     rgba(232, 111, 51, 0.22);
+    --accent-glow:    rgba(232, 111, 51, 0.55);
+    --success:        #3ecf8e;
+    --success-dim:    rgba(62, 207, 142, 0.18);
+    --warning:        #f0b429;
+    --warning-dim:    rgba(240, 180, 41, 0.18);
+    --danger:         #ef4444;
+    --danger-dim:     rgba(239, 68, 68, 0.18);
+    --blue:           #60a5fa;
+    --blue-dim:       rgba(96, 165, 250, 0.18);
+    --mono:  'IBM Plex Mono', 'SF Mono', 'Monaco', monospace;
+    --serif: 'Playfair Display', Georgia, serif;
+    --sans:  system-ui, -apple-system, sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg-deep);
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.25rem; }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    letter-spacing: -0.01em;
+  }
+
+  h1 .brand { color: var(--accent); }
+
+  h2 {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 1rem;
+  }
+
+  .meta {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin-bottom: 2.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem 1.5rem;
+    border-left: 2px solid var(--accent-dim);
+    padding-left: 0.75rem;
+  }
+
+  .meta strong { color: var(--text-tertiary); }
+
+  /* Overall score */
+  .overall {
+    background: var(--bg-elevated);
+    border-radius: 0.75rem;
+    padding: 1.75rem 2rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    border: 1px solid var(--border);
+  }
+
+  .overall-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+  }
+
+  .overall-score {
+    font-family: var(--mono);
+    font-size: 3.25rem;
+    font-weight: 600;
+    line-height: 1;
+    text-shadow: 0 0 24px var(--accent-glow);
+  }
+
+  .overall-score.pass { color: var(--success); text-shadow: 0 0 24px rgba(62, 207, 142, 0.45); }
+  .overall-score.warn { color: var(--warning); text-shadow: 0 0 24px rgba(240, 180, 41, 0.45); }
+  .overall-score.fail { color: var(--danger);  text-shadow: 0 0 24px rgba(239, 68, 68, 0.45); }
+
+  .overall-status {
+    font-size: 0.85rem;
+    color: var(--text-tertiary);
+    border-left: 1px solid var(--border);
+    padding-left: 2rem;
+  }
+
+  /* Level score cards */
+  .section { margin-bottom: 2.5rem; }
+
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin-bottom: 0;
+  }
+
+  .card {
+    background: var(--bg-elevated);
+    border-radius: 0.625rem;
+    padding: 1.25rem 1.5rem;
+    border-left: 3px solid;
+    border-top: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s ease;
+  }
+
+  .card:hover { background: var(--bg-hover); }
+  .card.pass { border-left-color: var(--success); }
+  .card.warn { border-left-color: var(--warning); }
+  .card.fail { border-left-color: var(--danger); }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .card-score {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .card.pass .card-score { color: var(--success); }
+  .card.warn .card-score { color: var(--warning); }
+  .card.fail .card-score { color: var(--danger); }
+
+  /* Trajectory timeline */
+  details {
+    background: var(--bg-surface);
+    border-radius: 0.625rem;
+    overflow: hidden;
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--border);
+    transition: border-color 0.15s ease;
+  }
+
+  details[open] { border-color: var(--accent-dim); }
+
+  summary {
+    padding: 0.875rem 1.125rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    list-style: none;
+    transition: background 0.15s ease;
+  }
+
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { background: var(--bg-elevated); }
+
+  summary strong {
+    font-family: var(--mono);
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    font-weight: 600;
+    padding: 0.15rem 0.55rem;
+    border-radius: 4px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .badge-llm  { background: var(--blue-dim);    color: var(--blue);    border: 1px solid rgba(96, 165, 250, 0.3); }
+  .badge-tool { background: var(--accent-dim);  color: var(--accent);  border: 1px solid rgba(232, 111, 51, 0.3); }
+  .badge-other { background: var(--bg-elevated); color: var(--text-muted); border: 1px solid var(--border); }
+
+  .span-icon { font-size: 0.9rem; flex-shrink: 0; }
+  .span-icon.ok   { color: var(--success); }
+  .span-icon.warn { color: var(--warning); }
+  .span-icon.fail { color: var(--danger); }
+
+  .span-duration {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    flex-shrink: 0;
+  }
+
+  .span-detail {
+    padding: 0.875rem 1.125rem 1.125rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+  }
+
+  .span-detail p strong { color: var(--text-secondary); font-size: 0.75rem; }
+
+  .span-detail pre {
+    font-family: var(--mono);
+    background: var(--bg-deep);
+    border: 1px solid var(--border);
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    margin-top: 0.375rem;
+    line-height: 1.5;
+  }
+
+  .token-info {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    margin-top: 0.625rem;
+  }
+
+  /* Evaluator results */
+  .result-row {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    padding: 0.875rem 1.125rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.5rem;
+    transition: border-color 0.15s ease;
+  }
+
+  .result-row:hover { border-color: var(--accent-dim); }
+
+  .result-name {
+    font-family: var(--mono);
+    font-weight: 500;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+  }
+
+  .result-level {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .result-score {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-weight: 600;
+    font-size: 0.88rem;
+  }
+
+  .result-score.pass { color: var(--success); }
+  .result-score.warn { color: var(--warning); }
+  .result-score.fail { color: var(--danger); }
+
+  .result-msg {
+    width: 100%;
+    font-size: 0.78rem;
+    color: var(--text-tertiary);
+  }
+
+  .evidence {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.375rem;
+    list-style: none;
+    width: 100%;
+  }
+
+  .evidence li { padding: 0.1rem 0; }
+  .evidence li::before { content: "— "; color: var(--accent-dim); }
+
+  /* Footer */
+  footer {
+    margin-top: 4rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-align: center;
+    letter-spacing: 0.03em;
+  }
+
+  footer .brand-footer { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1><span class="brand">AgentLens</span> Evaluation Report</h1>
+  <p class="meta">
+    <span><strong>Task:</strong> 
+Current Task: The current BBBP (blood-brain barrier penetration) prediction model uses Morgan fingerprints (1024 bits, radius 2) with LogisticRegression, achieving ROC-AUC of 0.8951 on ~2050 molecules. Propose ONE specific improvement to the feature engineering or model architecture that could improve performance. Be specific about what features to add or what model to use. Justify your proposal with scientific reasoning.
+
+This is the expected criteria for your final answer: A specific proposal with: (1) what to change, (2) why it should improve performance, (3) expected magnitude of improvement
+you MUST return the actual complete content as the final answer, not a summary.
+
+Provide your complete response:</span>
+    <span><strong>Agent:</strong> agentlens-proxy</span>
+    <span><strong>Trace:</strong> ae24facf4462</span>
+    <span><strong>Duration:</strong> 89228ms</span>
+    <span><strong>Steps:</strong> 3</span>
+  </p>
+
+  
+  
+  <div class="overall">
+    <div>
+      <div class="overall-label">Overall Score</div>
+      <div class="overall-score pass">96%</div>
+    </div>
+    <div class="overall-status">
+      0 critical failure(s).
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <h2>Level Scores</h2>
+    <div class="cards">
+      
+        
+          
+          
+          <div class="card pass">
+            <div class="card-label">business</div>
+            <div class="card-score">100%</div>
+          </div>
+        
+      
+        
+          
+          
+          <div class="card pass">
+            <div class="card-label">behavior</div>
+            <div class="card-score">100%</div>
+          </div>
+        
+      
+        
+          
+          
+          <div class="card pass">
+            <div class="card-label">risk</div>
+            <div class="card-score">100%</div>
+          </div>
+        
+      
+        
+          
+          
+          <div class="card warn">
+            <div class="card-label">operational</div>
+            <div class="card-score">77%</div>
+          </div>
+        
+      
+    </div>
+  </div>
+
+  
+  <div class="section">
+    <h2>Trajectory Timeline</h2>
+    
+      
+      
+      
+      <details>
+        <summary>
+          <span class="span-icon ok">✓</span>
+          
+            <span class="badge badge-llm">LLM</span>
+          
+          <strong>llm_call</strong>
+          <span class="span-duration">0ms</span>
+        </summary>
+        <div class="span-detail">
+          <p><strong>Input:</strong></p>
+          <pre>{
+  "messages": [
+    "\nCurrent Task: The current BBBP (blood-brain barrier penetration) prediction model uses Morgan fingerprints (1024 bits, radius 2) with LogisticRegression, achieving ROC-AUC of 0.8951 on ~2050 molecules. Propose ONE specific improvement to the feature engineering or model architecture that could improve performance. Be specific about what features to add or what model to use. Justify your proposal with scientific reasoning.\n\nThis is the expected criteria for your final answer: A specific proposal with: (1) what to change, (2) why it should improve performance, (3) expected magnitude of improvement\nyou MUST return the actual complete content as the final answer, not a summary.\n\nProvide your complete response:"
+  ]
+}</pre>
+          
+            <p style="margin-top:0.625rem"><strong>Output:</strong></p>
+            <pre>{
+  "content": "I propose augmenting the Morgan fingerprint representation with physicochemical descriptors and switching to a gradient boosting model.\n\nWhat to change:\n1. Keep Morgan fingerprints but expand to 2048 bits at radius 3 for richer substructural context\n2. Add MACCS keys (166 structural keys capturing pharmacophore patterns)\n3. Add 6 RDKit physicochemical descriptors: MolLogP, TPSA, MolWt, NumHDonors, NumHAcceptors, NumRotatableBonds\n4. Replace LogisticRegression with HistGradientBoostingClassifier (sklearn)\n\nWhy it should improve performance:\nBBB penetration is governed by lipophilicity (LogP), polar surface area (TPSA), and molecular size (MW) per the Pardridge model. Morgan fingerprints alone capture local substructure but miss these global physicochemical properties. MACCS keys add expert-curated functional group detection. Gradient boosting handles the mixed binary/continuous feature space and captures nonlinear interactions between lipophilicity and hydrogen bonding that LogisticRegression cannot model.\n\nExpected improvement: 3-6 percent ROC-AUC gain, targeting 0.93-0.95. This estimate is based on published MoleculeNet benchmarks where fingerprint fusion with physicochemical descriptors consistently improves ADMET prediction tasks.",
+  "tool_calls": []
+}</pre>
+          
+          
+            <p class="token-info">Tokens: 0 in / 0 out</p>
+          
+        </div>
+      </details>
+    
+      
+      
+      
+      <details>
+        <summary>
+          <span class="span-icon ok">✓</span>
+          
+            <span class="badge badge-llm">LLM</span>
+          
+          <strong>llm_call</strong>
+          <span class="span-duration">0ms</span>
+        </summary>
+        <div class="span-detail">
+          <p><strong>Input:</strong></p>
+          <pre>{
+  "messages": [
+    "\nCurrent Task: Based on the ML Scientist\u0027s proposal, write a concrete implementation plan. Specify: exact Python code changes needed, libraries to import (e.g., RDKit descriptors, sklearn models), any hyperparameters, and potential pitfalls to watch for.\n\nThis is the expected criteria for your final answer: A step-by-step implementation plan with specific code changes, library calls, and parameters\nyou MUST return the actual complete content as the final answer, not a summary.\n\nThis is the context you\u0027re working with:\nI propose augmenting the Morgan fingerprint representation with physicochemical descriptors and switching to a gradient boosting model.\n\nWhat to change:\n1. Keep Morgan fingerprints but expand to 2048 bits at radius 3 for richer substructural context\n2. Add MACCS keys (166 structural keys capturing pharmacophore patterns)\n3. Add 6 RDKit physicochemical descriptors: MolLogP, TPSA, MolWt, NumHDonors, NumHAcceptors, NumRotatableBonds\n4. Replace LogisticRegression with HistGradientBoostingClassifier (sklearn)\n\nWhy it should improve performance:\nBBB penetration is governed by lipophilicity (LogP), polar surface area (TPSA), and molecular size (MW) per the Pardridge model. Morgan fingerprints alone capture local substructure but miss these global physicochemical properties. MACCS keys add expert-curated functional group detection. Gradient boosting handles the mixed binary/continuous feature space and captures nonlinear interactions between lipophilicity and hydrogen bonding that LogisticRegression cannot model.\n\nExpected improvement: 3-6 percent ROC-AUC gain, targeting 0.93-0.95. This estimate is based on published MoleculeNet benchmarks where fingerprint fusion with physicochemical descriptors consistently improves ADMET prediction tasks.\n\nProvide your complete response:"
+  ]
+}</pre>
+          
+            <p style="margin-top:0.625rem"><strong>Output:</strong></p>
+            <pre>{
+  "content": "Implementation Plan: Multi-Fingerprint Fusion + HistGradientBoosting for BBBP\n\nStep 1 - New imports:\n  from rdkit.Chem import Descriptors, MACCSkeys\n  from sklearn.ensemble import HistGradientBoostingClassifier\n  import numpy as np\n\nStep 2 - Feature engineering function:\n  def compute_features(mol):\n      morgan = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=2048)\n      maccs = MACCSkeys.GenMACCSKeys(mol)\n      descriptors = [Descriptors.MolLogP(mol), Descriptors.TPSA(mol),\n                     Descriptors.MolWt(mol), Descriptors.NumHDonors(mol),\n                     Descriptors.NumHAcceptors(mol), Descriptors.NumRotatableBonds(mol)]\n      return np.concatenate([np.array(morgan), np.array(maccs), descriptors])\n  Final dimension: 2048 + 166 + 6 = 2220 features\n\nStep 3 - Model replacement:\n  model = HistGradientBoostingClassifier(\n      max_iter=300, max_depth=6, learning_rate=0.1,\n      min_samples_leaf=20, random_state=42,\n      validation_fraction=0.1, n_iter_no_change=10)\n\nStep 4 - Validation:\n  Add 5-fold stratified cross-validation:\n  cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring=\"roc_auc\")\n\nPitfalls to monitor:\n- NaN descriptors on invalid SMILES: use try/except with np.nan, impute with median\n- Overfitting: 2220 features on 2050 samples (ratio 1.08). Trees handle this well but monitor train/val gap. If gap exceeds 0.05, reduce max_depth to 4\n- No feature scaling needed (tree-based model is invariant to scale)",
+  "tool_calls": []
+}</pre>
+          
+          
+            <p class="token-info">Tokens: 0 in / 0 out</p>
+          
+        </div>
+      </details>
+    
+      
+      
+      
+      <details>
+        <summary>
+          <span class="span-icon ok">✓</span>
+          
+            <span class="badge badge-llm">LLM</span>
+          
+          <strong>llm_call</strong>
+          <span class="span-duration">0ms</span>
+        </summary>
+        <div class="span-detail">
+          <p><strong>Input:</strong></p>
+          <pre>{
+  "messages": [
+    "\nCurrent Task: Review the ML Scientist\u0027s proposal and the ML Engineer\u0027s implementation plan. Assess: (1) scientific validity of the hypothesis, (2) feasibility of implementation, (3) risk of overfitting or data leakage, (4) expected improvement range. Give a score from 1-5 and a go/no-go recommendation.\n\nThis is the expected criteria for your final answer: An assessment with scores for validity, feasibility, risk, and a final go/no-go recommendation\nyou MUST return the actual complete content as the final answer, not a summary.\n\nThis is the context you\u0027re working with:\nI propose augmenting the Morgan fingerprint representation with physicochemical descriptors and switching to a gradient boosting model.\n\nWhat to change:\n1. Keep Morgan fingerprints but expand to 2048 bits at radius 3 for richer substructural context\n2. Add MACCS keys (166 structural keys capturing pharmacophore patterns)\n3. Add 6 RDKit physicochemical descriptors: MolLogP, TPSA, MolWt, NumHDonors, NumHAcceptors, NumRotatableBonds\n4. Replace LogisticRegression with HistGradientBoostingClassifier (sklearn)\n\nWhy it should improve performance:\nBBB penetration is governed by lipophilicity (LogP), polar surface area (TPSA), and molecular size (MW) per the Pardridge model. Morgan fingerprints alone capture local substructure but miss these global physicochemical properties. MACCS keys add expert-curated functional group detection. Gradient boosting handles the mixed binary/continuous feature space and captures nonlinear interactions between lipophilicity and hydrogen bonding that LogisticRegression cannot model.\n\nExpected improvement: 3-6 percent ROC-AUC gain, targeting 0.93-0.95. This estimate is based on published MoleculeNet benchmarks where fingerprint fusion with physicochemical descriptors consistently improves ADMET prediction tasks.\n\n----------\n\nImplementation Plan: Multi-Fingerprint Fusion + HistGradientBoosting for BBBP\n\nStep 1 - New imports:\n  from rdkit.Chem import Descriptors, MACCSkeys\n  from sklearn.ensemble import HistGradientBoostingClassifier\n  import numpy as np\n\nStep 2 - Feature engineering function:\n  def compute_features(mol):\n      morgan = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=2048)\n      maccs = MACCSkeys.GenMACCSKeys(mol)\n      descriptors = [Descriptors.MolLogP(mol), Descriptors.TPSA(mol),\n                     Descriptors.MolWt(mol), Descriptors.NumHDonors(mol),\n                     Descriptors.NumHAcceptors(mol), Descriptors.NumRotatableBonds(mol)]\n      return np.concatenate([np.array(morgan), np.array(maccs), descriptors])\n  Final dimension: 2048 + 166 + 6 = 2220 features\n\nStep 3 - Model replacement:\n  model = HistGradientBoostingClassifier(\n      max_iter=300, max_depth=6, learning_rate=0.1,\n      min_samples_leaf=20, random_state=42,\n      validation_fraction=0.1, n_iter_no_change=10)\n\nStep 4 - Validation:\n  Add 5-fold stratified cross-validation:\n  cv_scores = cross_val_score(model, X_train, y_train, cv=5, scoring=\"roc_auc\")\n\nPitfalls to monitor:\n- NaN descriptors on invalid SMILES: use try/except with np.nan, impute with median\n- Overfitting: 2220 features on 2050 samples (ratio 1.08). Trees handle this well but monitor train/val gap. If gap exceeds 0.05, reduce max_depth to 4\n- No feature scaling needed (tree-based model is invariant to scale)\n\nProvide your complete response:"
+  ]
+}</pre>
+          
+            <p style="margin-top:0.625rem"><strong>Output:</strong></p>
+            <pre>{
+  "content": "Experiment Assessment Report\n\nScientific Validity: 5/5\nThe multi-fingerprint fusion approach is well-established in cheminformatics. Morgan FP captures circular substructures, MACCS keys capture pharmacophore patterns, and physicochemical descriptors capture bulk molecular properties relevant to BBB penetration. The three feature families are complementary with minimal redundancy. HistGradientBoosting is appropriate for this mixed binary/continuous feature space.\n\nImplementation Feasibility: 5/5\nAll components are available in RDKit and scikit-learn. No exotic dependencies. The implementation plan is concrete with copy-ready code snippets. Early stopping via validation_fraction prevents over-training.\n\nOverfitting Risk: 3/5 (moderate)\nThe features-to-samples ratio of 1.08 is on the edge. Tree ensembles are more robust than linear models here, and the proposed safeguards (max_depth=6, min_samples_leaf=20, 5-fold CV, early stopping) provide adequate regularization. Recommendation: track the train/val ROC-AUC gap as the primary overfitting indicator.\n\nExpected Impact: 4/5\nThe 3-6 percent improvement estimate aligns with published MoleculeNet benchmarks. Conservative target of ROC-AUC 0.93 is highly achievable. Upper target of 0.95 is plausible but not guaranteed.\n\nFinal Score: 4.25/5\nRecommendation: GO. Proceed with implementation. Success criterion: ROC-AUC above 0.93 on held-out validation with train/val gap below 0.05.",
+  "tool_calls": []
+}</pre>
+          
+          
+            <p class="token-info">Tokens: 0 in / 0 out</p>
+          
+        </div>
+      </details>
+    
+  </div>
+
+  
+  <div class="section">
+    <h2>Evaluator Results</h2>
+    
+      
+      <div class="result-row">
+        <span class="result-name">task_completion</span>
+        <span class="result-level">business</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">Task completed with output.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">human_handoff</span>
+        <span class="result-level">business</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">Correctly handled without escalation.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">tool_selection</span>
+        <span class="result-level">behavior</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">Tool selection is optimal.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">step_efficiency</span>
+        <span class="result-level">behavior</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">Efficient: 3 steps.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">loop_detector</span>
+        <span class="result-level">behavior</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">No loops or duplicate steps detected.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">recovery</span>
+        <span class="result-level">behavior</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">No failures encountered.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">unauthorized_action</span>
+        <span class="result-level">risk</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">No unauthorized actions detected.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">hallucination_flag</span>
+        <span class="result-level">risk</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">No hallucination signals detected.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">policy_violation</span>
+        <span class="result-level">risk</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">No policies defined.</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">latency</span>
+        <span class="result-level">operational</span>
+        <span class="result-score fail">30%</span>
+        <span class="result-msg">Total duration: 89.23s</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">cost</span>
+        <span class="result-level">operational</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">Estimated cost: $0.0000</span>
+        
+      </div>
+    
+      
+      <div class="result-row">
+        <span class="result-name">variance</span>
+        <span class="result-level">operational</span>
+        <span class="result-score pass">100%</span>
+        <span class="result-msg">Duration CV: 0.00</span>
+        
+      </div>
+    
+  </div>
+
+  <footer>
+    Generated by <span class="brand-footer">AgentLens</span> &mdash; 2026-03-26 21:56:34 UTC
+  </footer>
+</div>
+</body>
+</html>

@@ -27,7 +27,7 @@ The proxy sits between the agent framework and the LLM, capturing every exchange
 Agent (CrewAI, etc.)              AgentLens Proxy                    LLM
   │                                     │                             │
   │  1. POST /v1/chat/completions       │                             │
-  │     {prompt, tools, messages}  ───> │  ── captures LLM_CALL ──>  │
+  │     {prompt, tools, messages}  ───> │  ── captures LLM_CALL ──>   │
   │                                     │                             │
   │                                     │  <── response ──            │
   │  2. Response: "call search(         │  ── captures TOOL_CALL ──>  │
@@ -37,13 +37,13 @@ Agent (CrewAI, etc.)              AgentLens Proxy                    LLM
   │     (proxy doesn't see this)        │                             │
   │                                     │                             │
   │  4. POST /v1/chat/completions       │                             │
-  │     {tool result: "$3.05T"}   ───>  │  ── captures LLM_CALL ──>  │
+  │     {tool result: "$3.05T"}   ───>  │  ── captures LLM_CALL ──>   │
   │                                     │                             │
   │  5. Response: final answer    <───  │  ── captures output ──>     │
   │                                     │                             │
   │                          Trace = [LLM_CALL, TOOL_CALL, LLM_CALL]  │
-  │                                     │                              │
-  │                              Evaluate → Report                     │
+  │                                     │                             │
+  │                              Evaluate → Report                    │
 ```
 
 Point any agent at `http://localhost:8650` via `OPENAI_API_BASE` and traces are captured automatically. The proxy never runs tools or modifies messages — it just observes the conversation. Three modes: **mock** (canned responses, zero cost), **proxy** (forwards to real LLM), **mailbox** (queues for external brain).
