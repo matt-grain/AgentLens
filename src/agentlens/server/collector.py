@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from agentlens.models.trace import Span, SpanStatus, SpanType, TokenUsage, Trace
@@ -68,10 +69,13 @@ def _build_tool_spans(tool_calls: list[dict[str, Any]], parent_id: str) -> list[
 class TraceCollector:
     """Accumulates spans during an agent turn and finalizes them into Traces."""
 
-    def __init__(self) -> None:
+    def __init__(self, traces_dir: Path | None = None) -> None:
         self.traces: list[Trace] = []
         self.current_spans: list[Span] = []
         self.current_task: str = "unknown"
+        self._traces_dir = traces_dir
+        if traces_dir is not None:
+            traces_dir.mkdir(parents=True, exist_ok=True)
 
     def record_llm_call(
         self,
@@ -109,6 +113,10 @@ class TraceCollector:
                 completed_at=now,
             )
         )
+        if self._traces_dir is not None:
+            trace = self.traces[-1]
+            path = self._traces_dir / f"{trace.id}.json"
+            path.write_text(trace.model_dump_json(indent=2))
         self.current_spans.clear()
         self.current_task = "unknown"
 

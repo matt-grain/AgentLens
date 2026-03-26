@@ -5,6 +5,7 @@ from __future__ import annotations
 import time
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, Literal
 
 import httpx
@@ -77,10 +78,11 @@ def create_app(
     proxy_target: str | None = None,
     scenario: str = "happy_path",
     timeout: float = 300.0,
+    traces_dir: Path | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentLens Proxy")
 
-    collector = TraceCollector()
+    collector = TraceCollector(traces_dir=traces_dir)
     active_scenario: list[str] = [scenario]
     mailbox: MailboxQueue | None = MailboxQueue(timeout=timeout) if mode == "mailbox" else None
 

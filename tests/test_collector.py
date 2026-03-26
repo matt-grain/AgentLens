@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from agentlens.models.trace import SpanType
+from pathlib import Path
+
+from agentlens.models.trace import SpanType, Trace
 from agentlens.server.collector import TraceCollector
 from agentlens.server.models import ChatMessage
 
@@ -149,3 +151,36 @@ def test_get_trace_unknown_returns_none() -> None:
 
     # Assert
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# traces_dir persistence
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_saves_trace_to_disk(tmp_path: Path) -> None:
+    # Arrange
+    collector = TraceCollector(traces_dir=tmp_path)
+    collector.record_llm_call(_make_messages("save this"), "saved response", [], _make_usage())
+
+    # Act
+    collector.finalize()
+
+    # Assert
+    json_files = list(tmp_path.glob("*.json"))
+    assert len(json_files) == 1
+    trace = Trace.model_validate_json(json_files[0].read_text())
+    assert trace.id == collector.traces[0].id
+    assert trace.task == "save this"
+
+
+def test_finalize_without_traces_dir_does_not_save(tmp_path: Path) -> None:
+    # Arrange
+    collector = TraceCollector(traces_dir=None)
+    collector.record_llm_call(_make_messages(), "response", [], _make_usage())
+
+    # Act
+    collector.finalize()
+
+    # Assert
+    assert list(tmp_path.glob("*.json")) == []
