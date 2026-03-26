@@ -4,7 +4,8 @@
       "mcp__anima__memory",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(uv init:*)"
     ]
   }
 }
