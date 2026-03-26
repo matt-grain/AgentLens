@@ -57,6 +57,18 @@ Point any agent at `http://localhost:8650` via `OPENAI_API_BASE` and traces are 
 
 Level weights in the overall score: Business 30%, Behavior 30%, Risk 25%, Operational 15%.
 
+### Design Choice: Deterministic Evaluation, No LLM-as-Judge
+
+All 12 evaluators are rule-based and deterministic. There are no LLM calls in the evaluation pipeline — results are instant, free, and reproducible.
+
+This means some evaluators flag **signals**, not definitive verdicts:
+
+- **HallucinationFlag** detects **unverified numeric claims** — the agent cited a number (e.g., "$3.05 trillion", "47%") without a preceding tool call that could have sourced it. This is better understood as "lack of evidence in the trace" rather than confirmed hallucination. The LLM might be correct from training data — but the trace shows no tool-based evidence for the claim. In agent evaluation, knowing that an agent asserted numbers without grounding them in tool results is a useful signal regardless.
+- **PolicyViolation** uses simple substring matching against a list of forbidden phrases — it catches obvious violations but won't detect paraphrased or subtle policy breaches.
+- **LoopDetector** fingerprints spans by (type, name, input hash) — it catches exact duplicates and cycles but not semantically similar retries with slightly different inputs.
+
+Where deterministic evaluation falls short, LLM-as-judge would complement it — but at the cost of non-determinism, latency, and API spend. AgentLens prioritizes fast, reproducible signals that work at scale.
+
 ## Demo Output
 
 ```
