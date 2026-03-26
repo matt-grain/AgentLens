@@ -8,12 +8,12 @@
 | Phase | Status | Tasks | Completion |
 |-------|--------|-------|------------|
 | Phase 1: Scaffold + Core Models | ✅ Complete | 4/4 | 100% |
-| Phase 2: Observability Server | ⏳ Pending | 0/3 | 0% |
+| Phase 2: Observability Server | ✅ Complete | 4/4 | 100% |
 | Phase 3: Evaluators | ⏳ Pending | 0/4 | 0% |
 | Phase 4: Demo + Reporting | ⏳ Pending | 0/5 | 0% |
 | Phase 5: Polish | ⏳ Pending | 0/3 | 0% |
 
-**Overall:** 4/19 tasks complete (21%)
+**Overall:** 8/19 tasks complete (42%)
 
 ---
 
@@ -29,40 +29,44 @@
 - ✅ Tracer context manager — tracer.py + SpanBuilder
 - ✅ Tests — conftest.py, test_models.py, test_tracer.py
 
+---
+
+## Phase 2 — Observability Server
+
+**Implemented:** 2026-03-26
+**Agent:** python-fastapi (Sonnet)
+**Tooling:** ✅ All pass (ruff clean, pyright 0 errors, 28 tests passing)
+
+### Completed
+- ✅ OpenAI-compatible models — server/models.py (54 lines)
+- ✅ Canned response registry — server/canned.py (104 lines, 3 scenarios)
+- ✅ Proxy server — server/proxy.py (247 lines, 7 endpoints)
+- ✅ Server tests — test_server.py (10 tests)
+
 ### Files Created
-- `pyproject.toml` — Project config with all deps
-- `CLAUDE.md` — Project instructions
-- `src/agentlens/__init__.py` — Public API exports
-- `src/agentlens/py.typed` — PEP 561 marker
-- `src/agentlens/models/__init__.py` — Models subpackage
-- `src/agentlens/models/trace.py` — Span, Trace, SpanType, SpanStatus, TokenUsage
-- `src/agentlens/models/evaluation.py` — EvalResult, EvalSummary, EvalLevel, EvalSeverity
-- `src/agentlens/models/expectation.py` — TaskExpectation
-- `src/agentlens/capture/__init__.py` — Capture subpackage
-- `src/agentlens/capture/tracer.py` — Tracer context manager + SpanBuilder
-- `tests/__init__.py` — Test package
-- `tests/conftest.py` — Shared fixtures
-- `tests/test_models.py` — 10 model tests
-- `tests/test_tracer.py` — 8 tracer tests
+- `src/agentlens/server/__init__.py` — Server subpackage
+- `src/agentlens/server/models.py` — ChatMessage, ToolCall, ChatCompletionRequest/Response, Usage, Choice
+- `src/agentlens/server/canned.py` — CannedResponse, CannedRegistry, 3 pre-registered scenarios
+- `src/agentlens/server/proxy.py` — create_app() factory, mock+proxy modes, trace capture
+- `tests/test_server.py` — 10 tests covering all endpoints
 
 ### Verification Checklist
 | Item | Status |
 |------|--------|
 | All files created | ✅ |
-| All tests passing (18/18) | ✅ |
+| All tests passing (28/28) | ✅ |
 | Ruff clean | ✅ |
 | Pyright strict clean | ✅ |
-| Follows frozen Pydantic pattern | ✅ |
+| proxy.py under 250 lines | ✅ (247) |
 
 ---
 
 ## Next Phase Preview
 
-**Phase 2: Observability Server**
-- OpenAI-compatible proxy server (FastAPI)
-- Mock mode + proxy mode
-- Auto trace capture
-- Dependencies: Phase 1 ✅
+**Phase 3: Evaluators**
+- 12 deterministic evaluators across 4 levels
+- EvaluationSuite engine
+- Dependencies: Phase 1-2 ✅
 - Ready to start
 
 ---
