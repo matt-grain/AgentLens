@@ -1,0 +1,2 @@
+crewai>=0.108.0
+agentlens

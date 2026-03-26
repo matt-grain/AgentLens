@@ -30,7 +30,8 @@
       "Read(//c/Projects/AgentLens/**)",
       "Bash(done)",
       "Bash(mkdir -p /c/Projects/AgentLens/demo/fixtures)",
-      "Bash(mkdir -p /c/Projects/AgentLens/src/agentlens/report/templates)"
+      "Bash(mkdir -p /c/Projects/AgentLens/src/agentlens/report/templates)",
+      "WebFetch(domain:markdown.new)"
     ]
   }
 }
