@@ -43,7 +43,6 @@ def _run_crew() -> None:
         base_url=PROXY_V1,
         api_key="agentlens-mock",
         temperature=0.0,
-        max_iter=3,
         timeout=30.0,
     )
 

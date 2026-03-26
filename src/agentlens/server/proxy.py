@@ -20,6 +20,7 @@ from agentlens.server.models import (
     Choice,
     Usage,
 )
+from agentlens.server.wrapping import maybe_wrap_tool_calls
 
 
 def _canned_to_response(canned: CannedResponse, model: str) -> ChatCompletionResponse:
@@ -115,6 +116,7 @@ def create_app(
                 raise HTTPException(status_code=408, detail="Mailbox request timed out") from exc
             content = mb_response.content
             tool_calls_raw = mb_response.tool_calls
+            content, tool_calls_raw = maybe_wrap_tool_calls(content, tool_calls_raw, request.tools)
             usage: dict[str, Any] = {"prompt_tokens": 0, "completion_tokens": 0}
             response = _build_openai_response(content, tool_calls_raw, usage, request.model)
         else:
@@ -190,21 +192,34 @@ def _register_mailbox_endpoints(app: FastAPI, mailbox: MailboxQueue) -> None:
         entry = mailbox.get_entry(request_id)
         if entry is None:
             raise HTTPException(status_code=404, detail=f"Request {request_id} not found")
+        tools_info = [
+            {
+                "name": t.get("function", {}).get("name", "unknown"),
+                "parameters": t.get("function", {}).get("parameters", {}),
+            }
+            for t in entry.tools
+        ]
+        response_hint: dict[str, Any] = {
+            "format": "plain text or JSON with tool_calls",
+            "example_text": {"response": "Your answer here"},
+            "example_tool_call": {
+                "content": "",
+                "tool_calls": [
+                    {"id": "call_001", "type": "function", "function": {"name": "search", "arguments": "{}"}}
+                ],
+            },
+        }
+        if tools_info:
+            response_hint["available_tools"] = tools_info
+            response_hint["auto_wrap_note"] = (
+                "If you send plain JSON matching a tool schema, it will be auto-wrapped as a tool_call response."
+            )
         return {
             "request_id": entry.request_id,
             "model": entry.model,
             "messages": entry.messages,
             "tools": entry.tools,
-            "response_hint": {
-                "format": "plain text or JSON with tool_calls",
-                "example_text": {"response": "Your answer here"},
-                "example_tool_call": {
-                    "content": "",
-                    "tool_calls": [
-                        {"id": "call_001", "type": "function", "function": {"name": "search", "arguments": "{}"}}
-                    ],
-                },
-            },
+            "response_hint": response_hint,
             "age_seconds": round(time.time() - entry.timestamp, 2),
         }
 
