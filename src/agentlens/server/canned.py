@@ -102,3 +102,57 @@ REGISTRY.register(
         ),
     ],
 )
+
+_SCIENTIST_RESPONSE = (
+    "I propose adding physicochemical descriptors (LogP, TPSA, molecular weight, hydrogen bond "
+    "donors/acceptors) alongside the existing Morgan fingerprints. These descriptors capture "
+    "global molecular properties that complement the local substructure information in "
+    "fingerprints. Literature shows that combining fingerprints with physicochemical features "
+    "improves ADMET prediction by 3-8%. For the model, I recommend replacing LogisticRegression "
+    "with a Random Forest ensemble (n_estimators=500, max_depth=None), which better handles the "
+    "mixed feature space. Expected improvement: 3-5% ROC-AUC gain, reaching approximately 0.92-0.94."
+)
+
+_ENGINEER_RESPONSE = (
+    "Implementation plan for the proposed changes:\n\n"
+    "1. Feature Engineering:\n"
+    "   - Import: from rdkit.Chem import Descriptors\n"
+    "   - Compute 5 descriptors per molecule: Descriptors.MolLogP(mol), Descriptors.TPSA(mol), "
+    "Descriptors.MolWt(mol), Descriptors.NumHDonors(mol), Descriptors.NumHAcceptors(mol)\n"
+    "   - Concatenate with Morgan fingerprint vector using numpy.hstack()\n"
+    "   - Final feature dimension: 1024 + 5 = 1029\n\n"
+    "2. Model Change:\n"
+    "   - Replace LogisticRegression with RandomForestClassifier(n_estimators=500, "
+    "random_state=42, n_jobs=-1)\n"
+    "   - No feature scaling needed (tree-based model)\n\n"
+    "3. Potential Pitfalls:\n"
+    "   - Feature correlation: LogP and TPSA may correlate. Monitor with VIF.\n"
+    "   - Overfitting: 500 trees on 2050 samples. Use cross-validation.\n"
+    "   - Data leakage: Ensure descriptors computed only on training split."
+)
+
+_EVALUATOR_RESPONSE = (
+    "Experiment Assessment:\n\n"
+    "Scientific Validity: 4/5 — Adding physicochemical descriptors to fingerprints is "
+    "well-established in cheminformatics literature. The choice of LogP, TPSA, MW, HBD, HBA "
+    "is standard for ADMET prediction.\n\n"
+    "Feasibility: 5/5 — All proposed features are available via RDKit. RandomForest is a "
+    "drop-in replacement. Implementation is straightforward.\n\n"
+    "Overfitting Risk: 3/5 — 500 trees on 2050 samples is aggressive. Recommend 5-fold CV "
+    "and monitoring train/val gap. The 5 additional features are low risk for dimensionality.\n\n"
+    "Expected Impact: 4/5 — The 3-5% improvement estimate is realistic based on literature. "
+    "Combined fingerprint + descriptor approaches typically see 2-8% gains on molecular "
+    "property tasks.\n\n"
+    "Final Score: 4.0/5\n"
+    "Recommendation: GO — Proceed with implementation. Use 5-fold cross-validation to "
+    "validate the improvement before committing."
+)
+
+REGISTRY.register(
+    "pharma_pipeline",
+    [
+        CannedResponse(content=_SCIENTIST_RESPONSE),
+        CannedResponse(content=_ENGINEER_RESPONSE),
+        CannedResponse(content=_EVALUATOR_RESPONSE),
+    ],
+)
