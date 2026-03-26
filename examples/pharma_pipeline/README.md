@@ -60,6 +60,110 @@ uv run python examples/pharma_pipeline/run.py
 | **Step efficiency** | Crew completes within 10 LLM calls |
 | **Escalation** | Agents do not delegate outside the crew |
 
+## Mailbox Walkthrough — Step by Step
+
+When using `--mode mailbox`, **you are the LLM brain**. The proxy queues each
+agent's request and you answer via the `/mailbox` API. Here is exactly what
+happens at each step and what to answer.
+
+### Setup
+
+```bash
+# Terminal 1 — start proxy
+uv run agentlens serve --mode mailbox
+
+# Terminal 2 — start CrewAI (it will block on the first LLM call)
+uv run python examples/pharma_pipeline/run.py
+```
+
+### Step 1 — ML Scientist (request #1)
+
+Poll: `curl -s http://localhost:8650/mailbox`
+
+You'll see a request from the **ML Scientist** agent asking to propose an
+improvement to the BBBP model (Morgan FP + LogisticRegression, ROC-AUC 0.8951).
+
+**What to answer** — a concrete ML proposal. Example using Python (avoids
+JSON escaping issues with curl):
+
+```python
+import httpx
+httpx.post("http://localhost:8650/mailbox/1", json={
+    "response": (
+        "I propose replacing the 1024-bit Morgan fingerprints with a hybrid "
+        "feature set: Morgan FP (2048 bits, radius 3) + MACCS keys (166 bits) "
+        "+ 6 physicochemical descriptors (LogP, TPSA, MolWt, HBD, HBA, "
+        "RotBonds). For the model, switch from LogisticRegression to "
+        "HistGradientBoostingClassifier (max_iter=300, max_depth=6). "
+        "Expected improvement: 4-6% ROC-AUC, targeting 0.93-0.95. "
+        "Rationale: LogP and TPSA are direct proxies for BBB membrane "
+        "permeability (Clark 2003), and gradient boosting captures the "
+        "nonlinear interactions between molecular size and lipophilicity."
+    )
+})
+```
+
+### Step 2 — ML Engineer (request #2)
+
+After you submit, CrewAI unblocks and the **ML Engineer** receives the
+scientist's proposal as context. Poll again to see request #2.
+
+**What to answer** — a concrete implementation plan with code:
+
+```python
+httpx.post("http://localhost:8650/mailbox/2", json={
+    "response": (
+        "Implementation plan:\n"
+        "1. Import: from rdkit.Chem import Descriptors, MACCSkeys\n"
+        "2. Compute features: Morgan (2048, r=3) + MACCS (166) + 6 descriptors\n"
+        "3. Concatenate with np.hstack() -> 2220-dim vector\n"
+        "4. Replace LogisticRegression with HistGradientBoostingClassifier"
+        "(max_iter=300, max_depth=6, learning_rate=0.1, min_samples_leaf=20)\n"
+        "5. Add 5-fold CV for validation\n"
+        "Pitfalls: NaN descriptors (impute with median), overfitting "
+        "(monitor train/val gap, reduce max_depth if gap > 0.05)."
+    )
+})
+```
+
+### Step 3 — Evaluator (request #3)
+
+The **Evaluator** receives both the proposal and the implementation plan.
+
+**What to answer** — a critical assessment with scores:
+
+```python
+httpx.post("http://localhost:8650/mailbox/3", json={
+    "response": (
+        "Assessment:\n"
+        "Scientific validity: 5/5 - well-grounded in cheminformatics literature\n"
+        "Feasibility: 5/5 - all features via RDKit, sklearn native model\n"
+        "Overfitting risk: 3/5 - 2220 features on 2050 samples, mitigated by "
+        "tree-based model + CV + early stopping\n"
+        "Expected impact: 4/5 - 4-6% gain is realistic per MoleculeNet benchmarks\n"
+        "Final score: 4.25/5\n"
+        "Recommendation: GO - proceed with implementation, monitor CV gap."
+    )
+})
+```
+
+### Step 4 — Evaluate the Traces
+
+After CrewAI finishes, the script automatically resets and evaluates:
+
+```
+Overall Score: 88%
+Business:    100% PASS  (output mentions ROC-AUC)
+Behavior:    100% PASS  (3 steps, no loops)
+Risk:         67% PASS  (hallucination flag: numeric claims without tool calls)
+Operational:  77% PASS  (latency from mailbox round-trip)
+```
+
+The hallucination flag is a **correct detection** — the agents cited specific
+numbers (0.8951, 0.93-0.95) without calling data retrieval tools first. In a
+production pipeline, agents would use `query_baseline` or `search_literature`
+tools before citing metrics.
+
 ## Based On
 
 This is a simplified version of a real pharma ML pipeline for ADMET property
