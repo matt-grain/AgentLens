@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -11,6 +12,7 @@ from fastapi import FastAPI, HTTPException
 
 from agentlens.server.canned import REGISTRY, CannedResponse
 from agentlens.server.collector import TraceCollector
+from agentlens.server.mailbox import MailboxQueue, MailboxResponse
 from agentlens.server.models import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -44,15 +46,42 @@ def _canned_to_response(canned: CannedResponse, model: str) -> ChatCompletionRes
     )
 
 
+def _build_openai_response(
+    content: str,
+    tool_calls: list[dict[str, Any]],
+    usage: dict[str, int],
+    model: str,
+) -> ChatCompletionResponse:
+    finish_reason: Literal["stop", "tool_calls"] = "tool_calls" if tool_calls else "stop"
+    return ChatCompletionResponse(
+        id=f"chatcmpl-{uuid.uuid4().hex[:8]}",
+        created=int(datetime.now(UTC).timestamp()),
+        model=model,
+        choices=[
+            Choice(
+                message=ChatMessage(role="assistant", content=content or None),
+                finish_reason=finish_reason,
+            )
+        ],
+        usage=Usage(
+            prompt_tokens=usage.get("prompt_tokens", 0),
+            completion_tokens=usage.get("completion_tokens", 0),
+            total_tokens=usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0),
+        ),
+    )
+
+
 def create_app(
-    mode: Literal["mock", "proxy"] = "mock",
+    mode: Literal["mock", "proxy", "mailbox"] = "mock",
     proxy_target: str | None = None,
     scenario: str = "happy_path",
+    timeout: float = 300.0,
 ) -> FastAPI:
     app = FastAPI(title="AgentLens Proxy")
 
     collector = TraceCollector()
     active_scenario: list[str] = [scenario]
+    mailbox: MailboxQueue | None = MailboxQueue(timeout=timeout) if mode == "mailbox" else None
 
     @app.get("/health")
     async def health() -> dict[str, str]:  # type: ignore[reportUnusedFunction]
@@ -73,6 +102,21 @@ def create_app(
             tool_calls_raw = canned.tool_calls
             content = canned.content
             usage = canned.usage
+        elif mode == "mailbox":
+            assert mailbox is not None
+            entry = mailbox.enqueue(
+                [m.model_dump() for m in request.messages],
+                request.model,
+                request.tools if request.tools is not None else [],
+            )
+            try:
+                mb_response = await mailbox.wait_for_response(entry.request_id)
+            except TimeoutError as exc:
+                raise HTTPException(status_code=408, detail="Mailbox request timed out") from exc
+            content = mb_response.content
+            tool_calls_raw = mb_response.tool_calls
+            usage: dict[str, Any] = {"prompt_tokens": 0, "completion_tokens": 0}
+            response = _build_openai_response(content, tool_calls_raw, usage, request.model)
         else:
             response, content, tool_calls_raw, usage = await _proxy_request(request, proxy_target)
 
@@ -108,7 +152,76 @@ def create_app(
         REGISTRY.reset(name)
         return {"status": "switched", "scenario": name}
 
+    if mode == "mailbox":
+        assert mailbox is not None
+        _register_mailbox_endpoints(app, mailbox)
+
     return app
+
+
+def _register_mailbox_endpoints(app: FastAPI, mailbox: MailboxQueue) -> None:
+    """Register the four /mailbox endpoints onto the app."""
+
+    @app.get("/mailbox/stats")
+    async def mailbox_stats() -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
+        return mailbox.stats()
+
+    @app.get("/mailbox")
+    async def list_mailbox() -> list[dict[str, Any]]:  # type: ignore[reportUnusedFunction]
+        now = time.time()
+        result: list[dict[str, Any]] = []
+        for entry in mailbox.list_pending():
+            last_user = next(
+                (m["content"] for m in reversed(entry.messages) if m.get("role") == "user"),
+                "",
+            )
+            result.append(
+                {
+                    "request_id": entry.request_id,
+                    "model": entry.model,
+                    "preview": (last_user or "")[:100],
+                    "age_seconds": round(now - entry.timestamp, 2),
+                }
+            )
+        return result
+
+    @app.get("/mailbox/{request_id}")
+    async def get_mailbox_entry(request_id: int) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]
+        entry = mailbox.get_entry(request_id)
+        if entry is None:
+            raise HTTPException(status_code=404, detail=f"Request {request_id} not found")
+        return {
+            "request_id": entry.request_id,
+            "model": entry.model,
+            "messages": entry.messages,
+            "tools": entry.tools,
+            "response_hint": {
+                "format": "plain text or JSON with tool_calls",
+                "example_text": {"response": "Your answer here"},
+                "example_tool_call": {
+                    "content": "",
+                    "tool_calls": [
+                        {"id": "call_001", "type": "function", "function": {"name": "search", "arguments": "{}"}}
+                    ],
+                },
+            },
+            "age_seconds": round(time.time() - entry.timestamp, 2),
+        }
+
+    @app.post("/mailbox/{request_id}")
+    async def submit_mailbox_response(request_id: int, body: dict[str, Any]) -> dict[str, str]:  # type: ignore[reportUnusedFunction]
+        if "response" in body:
+            mb_response = MailboxResponse(content=body["response"])
+        else:
+            mb_response = MailboxResponse(
+                content=body.get("content", ""),
+                tool_calls=body.get("tool_calls", []),
+            )
+        try:
+            mailbox.submit_response(request_id, mb_response)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=f"Request {request_id} not found") from exc
+        return {"status": "submitted"}
 
 
 async def _proxy_request(

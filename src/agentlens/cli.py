@@ -96,10 +96,11 @@ def evaluate(
 
 @app.command()
 def serve(
-    mode: Annotated[str, typer.Option("--mode", "-m", help="Server mode: mock|proxy")] = "mock",
+    mode: Annotated[str, typer.Option("--mode", "-m", help="Server mode: mock|proxy|mailbox")] = "mock",
     proxy_to: Annotated[str | None, typer.Option("--proxy-to", help="Upstream URL for proxy mode")] = None,
     port: Annotated[int, typer.Option("--port", "-p", help="Port to listen on")] = 8650,
     scenario: Annotated[str, typer.Option("--scenario", "-s", help="Default canned scenario")] = "happy_path",
+    timeout: Annotated[float, typer.Option("--timeout", "-t", help="Mailbox request timeout (seconds)")] = 300.0,
 ) -> None:
     """Start the AgentLens proxy server."""
     from typing import Literal
@@ -108,6 +109,8 @@ def serve(
 
     from agentlens.server.proxy import create_app
 
-    server_mode: Literal["mock", "proxy"] = "proxy" if mode == "proxy" else "mock"
-    fastapi_app = create_app(mode=server_mode, proxy_target=proxy_to, scenario=scenario)
+    server_mode: Literal["mock", "proxy", "mailbox"] = (
+        "mailbox" if mode == "mailbox" else ("proxy" if mode == "proxy" else "mock")
+    )
+    fastapi_app = create_app(mode=server_mode, proxy_target=proxy_to, scenario=scenario, timeout=timeout)
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)  # noqa: S104
