@@ -34,7 +34,10 @@ src/agentlens/
 │   ├── risk.py          # UnauthorizedAction, HallucinationFlag, PolicyViolation
 │   └── operational.py   # Latency, Cost, Variance
 ├── server/
-│   ├── proxy.py         # FastAPI app factory (create_app)
+│   ├── proxy.py         # FastAPI app factory (create_app) — mock/proxy/mailbox modes
+│   ├── collector.py     # TraceCollector — shared span accumulation + trace finalization
+│   ├── mailbox.py       # MailboxQueue — async request/response queue for external brains
+│   ├── wrapping.py      # Auto tool-call wrapping for mailbox responses
 │   ├── canned.py        # CannedRegistry + per-scenario mock responses
 │   └── models.py        # OpenAI-compatible request/response Pydantic models
 ├── report/
@@ -102,15 +105,17 @@ class Evaluator(Protocol):
 **Must NOT:** Know about rendering, CLI concerns, or server state.
 
 ### server/
-**Does:** Expose OpenAI-compatible endpoints (`/v1/chat/completions`), capture spans into an in-memory trace, and finalize traces on `/traces/reset`. `create_app()` is a factory that wires closures for state.
+**Does:** Expose OpenAI-compatible endpoints (`/v1/chat/completions`), capture spans via `TraceCollector`, and finalize traces on `/traces/reset`. Three modes: **mock** (canned responses), **proxy** (forward to real LLM), **mailbox** (queue for external brain). Auto-saves traces to disk when `traces_dir` is set.
 
-**Must NOT:** Run evaluators, render reports, or touch the file system.
+**Must NOT:** Run evaluators or render reports.
 
 ```python
 def create_app(
-    mode: Literal["mock", "proxy"] = "mock",
+    mode: Literal["mock", "proxy", "mailbox"] = "mock",
     proxy_target: str | None = None,
     scenario: str = "happy_path",
+    timeout: float = 300.0,
+    traces_dir: Path | None = None,
 ) -> FastAPI: ...
 ```
 
@@ -194,26 +199,23 @@ REGISTRY.register("happy_path", [
 ])
 ```
 
-### Trace Capture in Proxy
+### Trace Capture via TraceCollector
 
-The proxy uses closure-captured mutable containers (`current_spans: list[Span]`, `traces: list[Trace]`) within `create_app()`. This is an intentional design choice: it keeps the server stateless from FastAPI's perspective while supporting simple single-agent-at-a-time trace capture.
+Span building and trace finalization are extracted into `TraceCollector` (in `server/collector.py`). Both the main proxy endpoints and the mailbox adapter use the same collector, avoiding duplication. When `traces_dir` is set, finalized traces are auto-saved as JSON files.
 
 ```python
-def create_app(...) -> FastAPI:
-    traces: list[Trace] = []
-    current_spans: list[Span] = []
+collector = TraceCollector(traces_dir=Path("traces"))
 
-    @app.post("/v1/chat/completions")
-    async def chat_completions(request: ChatCompletionRequest) -> dict[str, Any]:
-        # build spans, append to current_spans
-        ...
+# In /v1/chat/completions:
+collector.record_llm_call(request.messages, content, tool_calls, usage)
 
-    @app.post("/traces/reset")
-    async def reset_traces() -> dict[str, str]:
-        _finalize_trace(current_spans, current_task[0], traces)
-        current_spans.clear()
-        ...
+# In /traces/reset:
+collector.reset()  # finalizes trace, saves to disk, clears state
 ```
+
+### Mailbox Mode
+
+In mailbox mode, `/v1/chat/completions` requests queue in a `MailboxQueue` instead of returning immediately. An external brain (Claude Code, curl, any HTTP client) polls `GET /mailbox`, reads requests, and submits responses via `POST /mailbox/{id}`. The `wrapping.py` module auto-wraps plain JSON responses as OpenAI `tool_calls` when the request has tools defined — this prevents CrewAI retry loops caused by format mismatches.
 
 ## Design Decisions
 
@@ -221,6 +223,8 @@ See [decisions.md](decisions.md) for the full Architecture Decision Records.
 
 Key decisions at a glance:
 - Proxy server over SDK wrappers — provider-agnostic by design
-- All evaluators are deterministic — no LLM-as-judge
+- All evaluators are deterministic — no LLM-as-judge (see TODOS.md for optional LLM judge roadmap)
 - Pre-recorded fixtures for the demo — zero-friction, no API keys
 - Single trace per proxy session — kept simple intentionally
+- Mailbox mode for human/AI-in-the-loop — decouples agent execution from LLM response
+- TraceCollector extracted from proxy — shared by all modes, auto-persists to disk

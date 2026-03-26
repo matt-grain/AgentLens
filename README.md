@@ -2,11 +2,13 @@
 
 **Trajectory-first agent evaluation framework.**
 
-![Python](https://img.shields.io/badge/python-3.13-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-91%20passing-brightgreen)
+![Python](https://img.shields.io/badge/python-3.13-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-123%20passing-brightgreen)
 
 ## The Problem
 
-LLM agents don't just produce outputs — they follow trajectories: planning steps, tool calls, retries, and branching paths. Evaluating the final answer alone misses the quality of the reasoning process, wasteful loops, unauthorized tool use, and cost overruns. AgentLens evaluates the full trajectory at four levels: business goals, behavioral efficiency, risk, and operational performance.
+Most people evaluate LLM agents like chatbots — check the final answer and move on. But agents don't just produce outputs, they follow **trajectories**: planning steps, tool calls, retries, and branching paths. Evaluating the final answer alone misses wasteful loops, unauthorized tool use, hallucinated claims without evidence, and cost overruns.
+
+AgentLens evaluates the **full trajectory** at four levels: business goals, behavioral efficiency, risk, and operational performance. All 12 evaluators are deterministic — no LLM-as-judge, instant results, zero cost.
 
 ## Quick Start
 
@@ -173,7 +175,44 @@ curl http://localhost:8650/traces        # list captured traces
 curl -X POST http://localhost:8650/traces/reset  # finalize current trace
 ```
 
-After execution, retrieve traces from `/traces` and feed them to `EvaluationSuite.evaluate()`.
+After execution, retrieve traces from `/traces` and feed them to `EvaluationSuite.evaluate()`. Traces are also auto-saved to `./traces/` as JSON files by default.
+
+## Using with Agentic Development Tools
+
+The **mailbox mode** enables any AI coding assistant to act as the LLM brain for an agent under evaluation. This works with Claude Code, OpenCode, GitHub Copilot, Cursor, or any tool that can make HTTP calls.
+
+```bash
+# Terminal 1 — start proxy in mailbox mode
+uv run agentlens serve --mode mailbox
+
+# Terminal 2 — run the agent under evaluation
+uv run python examples/pharma_pipeline/run.py
+```
+
+The agent's LLM calls queue in the mailbox. In your AI coding assistant session:
+
+```
+"Poll http://localhost:8650/mailbox for pending requests.
+ For each request, read GET /mailbox/{id} to see the full prompt and tools.
+ Reason about the best response, then POST /mailbox/{id} with your answer.
+ Keep polling until idle for 30 seconds."
+```
+
+The assistant reads each agent's prompt, reasons about it, and submits a response — becoming the LLM brain. AgentLens captures the full trajectory for evaluation. This is useful for:
+
+- **Debugging agent behavior** — watch exactly what prompts your agent sends and how it reacts to responses
+- **Testing with a real LLM** without paying for API calls on every test run — use the mailbox with a local model or coding assistant
+- **Human-in-the-loop evaluation** — a domain expert can answer the mailbox requests manually to test agent robustness
+
+See `examples/mailbox_brain/` for a standalone brain script and `examples/pharma_pipeline/README.md` for a step-by-step walkthrough.
+
+## Examples
+
+| Example | Agents | What It Demonstrates |
+|---------|--------|---------------------|
+| `examples/crewai_research/` | 2 (Researcher, Writer) | Basic CrewAI integration with proxy |
+| `examples/pharma_pipeline/` | 3 (ML Scientist, ML Engineer, Evaluator) | Multi-agent ML experiment evaluation |
+| `examples/mailbox_brain/` | N/A | Standalone brain script for mailbox mode |
 
 ## Why AgentLens
 
@@ -184,3 +223,7 @@ After execution, retrieve traces from `/traces` and feed them to `EvaluationSuit
 | DeepEval | LLM output quality | LLM-as-judge for correctness |
 
 AgentLens is not a replacement for RAGAS or DeepEval — it fills the gap they leave: **did the agent take the right path?** All 12 evaluators are deterministic (no LLM calls), making evaluations instant, free, and reproducible in CI.
+
+## Development
+
+Built with [Anima](https://github.com/matt-grain/Anima) (long-term memory for AI-assisted development) following the practices documented in [AgenticDevelopmentBestPractices](https://github.com/matt-grain/AgenticDevelopmentBestPractices).
