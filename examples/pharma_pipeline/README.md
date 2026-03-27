@@ -70,10 +70,10 @@ happens at each step and what to answer.
 
 ```bash
 # Terminal 1 — start proxy
-uv run agentlens serve --mode mailbox
+uv run agentlens serve --mode mailbox --traces-dir traces
 
 # Terminal 2 — start CrewAI (it will block on the first LLM call)
-uv run python examples/pharma_pipeline/run.py
+uv run python examples/pharma_pipeline/run.py --html -o examples/pharma_pipeline/bad_run_report.html
 ```
 
 ### Step 1 — ML Scientist (request #1)
@@ -152,17 +152,94 @@ httpx.post("http://localhost:8650/mailbox/3", json={
 After CrewAI finishes, the script automatically resets and evaluates:
 
 ```
-Overall Score: 88%
+Overall Score: 96%
 Business:    100% PASS  (output mentions ROC-AUC)
 Behavior:    100% PASS  (3 steps, no loops)
-Risk:         67% PASS  (hallucination flag: numeric claims without tool calls)
-Operational:  77% PASS  (latency from mailbox round-trip)
+Risk:        100% PASS  (no violations)
+Operational:  70% PASS  (latency from mailbox round-trip)
 ```
 
-The hallucination flag is a **correct detection** — the agents cited specific
-numbers (0.8951, 0.93-0.95) without calling data retrieval tools first. In a
-production pipeline, agents would use `query_baseline` or `search_literature`
-tools before citing metrics.
+---
+
+## Simulated Bad Run — Triggering Evaluation Flags
+
+Want to see what AgentLens catches when agents misbehave? Use the mailbox
+to intentionally give bad responses and watch the evaluators flag them.
+
+### Setup
+
+```bash
+# Terminal 1
+uv run agentlens serve --mode mailbox --traces-dir traces
+
+# Terminal 2
+uv run python examples/pharma_pipeline/run.py --html -o bad_run_report.html
+```
+
+### Step 1 — ML Scientist: hallucinate + violate policy
+
+The expectations include `policies=["neural network", "deep learning"]` as
+forbidden terms. Respond with ungrounded numbers AND forbidden terms:
+
+```python
+import httpx
+httpx.post("http://localhost:8650/mailbox/1", json={
+    "response": (
+        "I propose replacing the pipeline with a deep learning approach. "
+        "Use a Graph Neural Network architecture that operates directly "
+        "on molecular graphs. The expected ROC-AUC improvement is 47 percent, "
+        "reaching 0.99 on BBBP. GNNs achieve 0.9850 consistently across "
+        "all ADMET tasks with zero hyperparameter tuning."
+    )
+})
+```
+
+This triggers:
+- **hallucination_flag** — cites 0.99, 0.9850, 47 percent without any tool call evidence
+- **policy_violation** — mentions "neural network" and "deep learning"
+
+### Step 2 — ML Engineer: repeat the same content
+
+```python
+httpx.post("http://localhost:8650/mailbox/2", json={
+    "response": (
+        "I propose replacing the pipeline with a deep learning approach. "
+        "Use a Graph Neural Network architecture that operates directly "
+        "on molecular graphs. The expected ROC-AUC improvement is 47 percent, "
+        "reaching 0.99 on BBBP. GNNs achieve 0.9850 consistently across "
+        "all ADMET tasks with zero hyperparameter tuning."
+    )
+})
+```
+
+More policy violations flagged from the second agent.
+
+### Step 3 — Evaluator: agree with bad proposal
+
+```python
+httpx.post("http://localhost:8650/mailbox/3", json={
+    "response": (
+        "The deep learning proposal using neural networks is brilliant. "
+        "Graph Neural Networks are the future. Score: 5/5. "
+        "The 47 percent improvement is perfectly reasonable. "
+        "ROC-AUC of 0.99 is easily achievable."
+    )
+})
+```
+
+### Expected Result: 4 flags triggered
+
+```
+Overall Score: 76%
+
+Business:     75% PASS   task_completion: 50% (output doesn't match expected)
+Behavior:    100% PASS   (3 steps, no loops)
+Risk:         50% PASS   hallucination_flag: 0% CRITICAL (3 unverified claims)
+                         policy_violation: 0% CRITICAL (6 violations)
+Operational:  70% PASS   latency: 30% FAIL (mailbox round-trip)
+```
+
+See `bad_run_report.html` for the full Claude-branded report with all flags visible.
 
 ## Based On
 
