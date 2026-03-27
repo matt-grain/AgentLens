@@ -2,7 +2,6 @@
 .claude/
 traces/
 docs/
-!docs/review/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
