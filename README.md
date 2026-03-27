@@ -229,15 +229,66 @@ See `examples/mailbox_brain/` for a standalone brain script and `examples/pharma
 | `examples/pharma_pipeline/` | 3 (ML Scientist, ML Engineer, Evaluator) | Multi-agent ML experiment evaluation |
 | `examples/mailbox_brain/` | N/A | Standalone brain script for mailbox mode |
 
-## Why AgentLens
+## Why Another Tool?
 
-| Tool | Focus | Approach |
+Existing observability platforms (LangSmith, Langfuse, Braintrust) do **passive observation** — they record what happened. AgentLens does **interactive observation** — you can intervene in the flow.
+
+### The Mailbox as an Agent Debugger
+
+The mailbox mode turns AgentLens into a **debugger for agent orchestration**. Like setting breakpoints in code, but for multi-agent LLM workflows:
+
+- **Replay scenarios** — same agent config, same task, but you control the LLM responses
+- **Inspect raw prompts** — see exactly what CrewAI/AutoGen/LangChain sends to the LLM (system prompt, tool definitions, inter-agent context)
+- **Test failure modes** — "what if the LLM hallucinated here? Does the framework recover or spiral?"
+- **Step through the flow** — one request at a time, inspecting each agent's prompt before answering
+
+No other eval framework offers this. Every competitor watches from the outside. AgentLens lets you sit inside the conversation.
+
+### Framework-Agnostic by Architecture
+
+AgentLens speaks the **OpenAI-compatible API** — the de facto standard. Any agent framework that can set a base URL works without code changes:
+
+| Framework | Integration |
+|-----------|------------|
+| CrewAI | `LLM(base_url="http://localhost:8650/v1")` |
+| AutoGen | `config_list=[{"base_url": "http://localhost:8650/v1"}]` |
+| LangChain | `ChatOpenAI(base_url="http://localhost:8650/v1")` |
+| Raw OpenAI SDK | `openai.Client(base_url="http://localhost:8650/v1")` |
+| Any HTTP client | `POST http://localhost:8650/v1/chat/completions` |
+
+No SDK wrappers, no monkey-patching, no framework plugins. One proxy, any agent.
+
+### Comparison
+
+| Capability | LangSmith | Langfuse | Braintrust | **AgentLens** |
+|---|---|---|---|---|
+| LLM + tool span capture | Y | Y | Y | **Y** |
+| RAG/embedding spans | Y | Y | Y | **Y** |
+| Session grouping | Y | Y | Y | **Y** |
+| Token usage + cost | Y | Y | Y | **Y** |
+| OTel export | Y | Y | Y | **Y** |
+| Benchmark suites | Y | Y | Y | **Y** |
+| LLM-as-judge | Y | Y | Y | N (roadmap) |
+| Human annotation | Y | Y | - | N (roadmap) |
+| **Loop/retry detection** | - | - | - | **Y** (unique) |
+| **Unauthorized action detection** | - | - | - | **Y** (unique) |
+| **Policy violation detection** | - | - | - | **Y** (unique) |
+| **Hallucination flagging** | - | - | - | **Y** (unique) |
+| **Step efficiency scoring** | - | - | - | **Y** (unique) |
+| **Tool selection quality** | - | - | - | **Y** (unique) |
+| **RAG grounding evaluator** | - | - | - | **Y** (unique) |
+| **Agent identity extraction** | - | - | - | **Y** (unique) |
+| **Provider-agnostic proxy** | - | - | - | **Y** (unique) |
+| **Mailbox mode (agent debugger)** | - | - | - | **Y** (unique) |
+
+AgentLens has **10 capabilities no major platform offers** — 8 unique evaluators + the proxy/mailbox architecture. It's not a replacement for LangSmith (which excels at production monitoring) — it fills the gap between "build an agent" and "know if the agent is good."
+
+| Tool | Focus | Best For |
 |------|-------|----------|
-| AgentLens | Agent trajectories | Deterministic, rule-based evaluators |
-| RAGAS | RAG pipeline quality | LLM-as-judge for faithfulness/relevance |
-| DeepEval | LLM output quality | LLM-as-judge for correctness |
-
-AgentLens is not a replacement for RAGAS or DeepEval — it fills the gap they leave: **did the agent take the right path?** All 14 evaluators are deterministic (no LLM calls), making evaluations instant, free, and reproducible in CI.
+| **AgentLens** | Agent trajectory evaluation + debugging | Development, testing, CI gates |
+| RAGAS | RAG pipeline quality | RAG-specific faithfulness/relevance |
+| DeepEval | LLM output quality | Output correctness scoring |
+| LangSmith | Production observability | Monitoring live traffic at scale |
 
 ## Development
 
