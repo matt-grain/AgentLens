@@ -9,11 +9,15 @@ AgentLens + CrewAI: Pharma ML Pipeline Evaluation
 AgentLens captures the full trajectory and evaluates agent behavior.
 
 Usage:
-    # Terminal 1: Start proxy
-    uv run agentlens serve --mode mock    # or --mode mailbox
+    # Terminal 1: Start proxy (pick ONE mode)
+    uv run agentlens serve --mode mock --scenario pharma_pipeline   # canned responses, zero cost
+    uv run agentlens serve --mode mailbox                           # you/AI answer via /mailbox API
+    uv run agentlens serve --mode proxy --proxy-to https://api.openai.com  # forward to real LLM
 
-    # Terminal 2: Run pipeline
+    # Terminal 2: Run pipeline (same command regardless of proxy mode)
     uv run python examples/pharma_pipeline/run.py
+
+The script always calls localhost:8650. The proxy decides what happens — the agent never knows.
 """
 
 from __future__ import annotations
