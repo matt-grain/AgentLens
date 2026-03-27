@@ -231,3 +231,45 @@ def test_record_llm_call_no_system_message_no_agent_name() -> None:
     # Assert
     span = collector.current_spans[0]
     assert "agent_name" not in span.metadata
+
+
+# ---------------------------------------------------------------------------
+# session_id
+# ---------------------------------------------------------------------------
+
+
+def test_finalize_includes_session_id() -> None:
+    # Arrange
+    collector = TraceCollector(session_id="sess-1")
+    collector.record_llm_call(_make_messages(), "response", [], _make_usage())
+
+    # Act
+    collector.finalize()
+
+    # Assert
+    assert collector.traces[0].session_id == "sess-1"
+
+
+def test_finalize_without_session_id_is_none() -> None:
+    # Arrange
+    collector = TraceCollector()
+    collector.record_llm_call(_make_messages(), "response", [], _make_usage())
+
+    # Act
+    collector.finalize()
+
+    # Assert
+    assert collector.traces[0].session_id is None
+
+
+def test_set_session_id_updates_next_trace() -> None:
+    # Arrange
+    collector = TraceCollector()
+    collector.record_llm_call(_make_messages(), "response", [], _make_usage())
+
+    # Act
+    collector.set_session_id("sess-2")
+    collector.finalize()
+
+    # Assert
+    assert collector.traces[0].session_id == "sess-2"

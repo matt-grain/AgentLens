@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 
 from agentlens.server.canned import REGISTRY, CannedResponse
 from agentlens.server.collector import TraceCollector
@@ -82,12 +82,13 @@ def create_app(
     scenario: str = "happy_path",
     timeout: float = 300.0,
     traces_dir: Path | None = None,
+    session_id: str | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentLens Proxy")
 
     # Pyright reports nested FastAPI route handlers as unused functions.
     # They are registered by @app.get/@app.post decorators at definition time.
-    collector = TraceCollector(traces_dir=traces_dir)
+    collector = TraceCollector(traces_dir=traces_dir, session_id=session_id)
     active_scenario: list[str] = [scenario]
     mailbox: MailboxQueue | None = MailboxQueue(timeout=timeout) if mode == ServerMode.MAILBOX else None
 
@@ -103,8 +104,11 @@ def create_app(
         }
 
     @app.post("/v1/chat/completions")
-    async def chat_completions(request: ChatCompletionRequest) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
+    async def chat_completions(request: ChatCompletionRequest, request_obj: Request) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
         request_start = datetime.now(UTC)
+        session_header = request_obj.headers.get("x-agentlens-session")
+        if session_header:
+            collector.set_session_id(session_header)
 
         if mode == ServerMode.MOCK:
             canned = REGISTRY.next_response(active_scenario[0])

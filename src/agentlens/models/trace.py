@@ -14,6 +14,8 @@ class SpanType(StrEnum):
     DECISION = "decision"
     ERROR = "error"
     ESCALATION = "escalation"
+    RETRIEVAL = "retrieval"
+    EMBEDDING = "embedding"
 
 
 @unique
@@ -32,11 +34,13 @@ class Span(BaseModel, frozen=True):
     """Individual step in agent execution.
 
     Output key conventions (contract for evaluators):
-    - LLM_CALL: output={"content": "response text", "tool_calls": [...]}
-    - TOOL_CALL: output={"result": "tool output text"}
-    - ERROR:     output={"error": "error message"}
+    - LLM_CALL:   output={"content": "response text", "tool_calls": [...]}
+    - TOOL_CALL:  output={"result": "tool output text"}
+    - ERROR:      output={"error": "error message"}
     - ESCALATION: output={"reason": "why escalated"}
-    - DECISION:  output={"decision": "what was decided"}
+    - DECISION:   output={"decision": "what was decided"}
+    - RETRIEVAL:  output={"documents": [{"id": "doc1", "content": "...", "score": 0.95}]}
+    - EMBEDDING:  output={"vector_dim": 1536, "model": "text-embedding-3-small"}
     """
 
     id: str
@@ -66,6 +70,7 @@ class Trace(BaseModel):
     final_output: str | None = None
     started_at: datetime
     completed_at: datetime
+    session_id: str | None = None  # groups multi-turn traces belonging to one conversation
 
     @property
     def total_tokens(self) -> TokenUsage | None:

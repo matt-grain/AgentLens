@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from agentlens.benchmark import BenchmarkResult, run_benchmark
 from agentlens.capture.tracer import Tracer
 from agentlens.engine import EvaluationSuite
 from agentlens.evaluators import Evaluator
@@ -14,6 +15,7 @@ __version__ = "0.1.0"
 
 __all__ = [
     "__version__",
+    "BenchmarkResult",
     "EvalLevel",
     "EvalResult",
     "EvalSeverity",
@@ -29,4 +31,5 @@ __all__ = [
     "Tracer",
     "generate_html_report",
     "print_report",
+    "run_benchmark",
 ]

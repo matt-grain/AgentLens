@@ -1,7 +1,7 @@
-# AgentLens — P1 Bug Fixes Implementation Plan
+# AgentLens — P2 Features Implementation Plan
 
 **Date:** 2026-03-26
-**Spec reference:** `TODOS.md` (Priority 1 section)
+**Spec reference:** `TODOS.md` (Priority 2 section)
 **Project type:** Python 3.13 + FastAPI + uv
 
 ---
@@ -10,19 +10,36 @@
 
 | Phase | Title | New Files | Modified Files | Tests | Agent | Depends On |
 |-------|-------|-----------|----------------|-------|-------|-----------|
-| P1 | Fix span timestamps, token usage, agent identity | 0 | 6 | 2 modified | `python-fastapi` | — |
+| P2.1 | RAG Span Types + Evaluators | 1 new evaluator file | 3 modified | 1 test file | `python-fastapi` | — |
+| P2.2 | Session/Conversation Grouping | 0 | 4 modified | 1 test file modified | `python-fastapi` | — |
+| P2.3 | OTel-Compatible Export | 2 new | 1 modified | 1 test file | `python-fastapi` | — |
+| P2.4 | Benchmark Suite | 2 new + 1 fixture | 1 modified | 1 test file | `python-fastapi` | — |
 
-All 3 P1 fixes are tightly coupled (they all modify `collector.py` and `proxy.py`), so they ship as one phase.
+## Implementation Order
 
-## Detailed Plan
+```
+P2.1 ──┐
+P2.2 ──┼── all independent, can run in any order
+P2.3 ──┤
+P2.4 ──┘
+```
 
-- `IMPLEMENTATION_PLAN_PHASE_P1.md` — All 3 bug fixes
+No cross-dependencies. Each phase is self-contained.
 
-## Verification
+## Detailed Plans
+
+- `IMPLEMENTATION_PLAN_PHASE_P2_1.md` — RAG Span Types + Evaluators
+- `IMPLEMENTATION_PLAN_PHASE_P2_2.md` — Session Grouping
+- `IMPLEMENTATION_PLAN_PHASE_P2_3.md` — OTel Export
+- `IMPLEMENTATION_PLAN_PHASE_P2_4.md` — Benchmark Suite
+
+## Verification (after all phases)
 
 ```bash
-uv run pytest tests/ -v
+uv run pytest
 uv run pyright src/
 uv run ruff check src/ tests/
-uv run agentlens demo --verbose     # spans should show real durations, token counts, agent names
+uv run agentlens demo --verbose
+uv run agentlens export-otel traces/some-trace.json
+uv run agentlens benchmark run benchmarks/default.json
 ```

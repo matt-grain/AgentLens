@@ -85,13 +85,18 @@ def _build_tool_spans(tool_calls: list[dict[str, Any]], parent_id: str, start_ti
 class TraceCollector:
     """Accumulates spans during an agent turn and finalizes them into Traces."""
 
-    def __init__(self, traces_dir: Path | None = None) -> None:
+    def __init__(self, traces_dir: Path | None = None, session_id: str | None = None) -> None:
         self.traces: list[Trace] = []
         self.current_spans: list[Span] = []
         self.current_task: str = "unknown"
         self._traces_dir = traces_dir
+        self._session_id = session_id
         if traces_dir is not None:
             traces_dir.mkdir(parents=True, exist_ok=True)
+
+    def set_session_id(self, session_id: str) -> None:
+        """Update the session ID used for subsequent finalized traces."""
+        self._session_id = session_id
 
     def record_llm_call(
         self,
@@ -134,6 +139,7 @@ class TraceCollector:
                 final_output=final_output,
                 started_at=self.current_spans[0].start_time,
                 completed_at=now,
+                session_id=self._session_id,
             )
         )
         if self._traces_dir is not None:

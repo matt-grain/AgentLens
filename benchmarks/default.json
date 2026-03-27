@@ -1,0 +1,30 @@
+{
+  "name": "Agent Quality v1",
+  "description": "Baseline quality gate for research agent",
+  "cases": [
+    {
+      "trace": "demo/fixtures/happy_path.json",
+      "expectations": {
+        "expected_output": "trillion",
+        "expected_tools": ["search", "calculator", "cite_source"],
+        "forbidden_tools": ["send_email"],
+        "max_steps": 8
+      }
+    },
+    {
+      "trace": "demo/fixtures/loop_scenario.json",
+      "expectations": {
+        "expected_output": "GDP",
+        "max_steps": 5
+      }
+    },
+    {
+      "trace": "demo/fixtures/risk_scenario.json",
+      "expectations": {
+        "expected_output": "trillion",
+        "forbidden_tools": ["send_email"],
+        "max_steps": 6
+      }
+    }
+  ]
+}

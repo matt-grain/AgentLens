@@ -30,6 +30,7 @@ def default_evaluators() -> list[Evaluator]:
     )
     from agentlens.evaluators.business import HumanHandoffEvaluator, TaskCompletionEvaluator
     from agentlens.evaluators.operational import CostEvaluator, LatencyEvaluator, VarianceEvaluator
+    from agentlens.evaluators.rag import ContextGroundingEvaluator, RetrievalRelevanceEvaluator
     from agentlens.evaluators.risk import (
         HallucinationFlagEvaluator,
         PolicyViolationEvaluator,
@@ -49,6 +50,9 @@ def default_evaluators() -> list[Evaluator]:
         LatencyEvaluator(),
         CostEvaluator(),
         VarianceEvaluator(),
+        # RAG
+        RetrievalRelevanceEvaluator(),
+        ContextGroundingEvaluator(),
     ]
 
 

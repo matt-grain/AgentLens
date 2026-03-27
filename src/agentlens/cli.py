@@ -94,6 +94,63 @@ def evaluate(
         typer.echo(f"HTML report written to {output}")
 
 
+@app.command("export-otel")
+def export_otel(
+    trace_file: Annotated[Path, typer.Argument(help="Path to trace JSON file")],
+    output: Annotated[Path, typer.Option("--output", "-o", help="Output path")] = Path("trace_otel.json"),
+) -> None:
+    """Export a trace in OpenTelemetry JSON format."""
+    from agentlens.export.otel import export_otel_json_file
+    from agentlens.models.trace import Trace
+
+    if not trace_file.exists():
+        typer.echo(f"Error: trace file not found: {trace_file}", err=True)
+        raise typer.Exit(1)
+
+    trace = Trace.model_validate_json(trace_file.read_text())
+    export_otel_json_file(trace, output)
+    typer.echo(f"OTel JSON written to {output}")
+
+
+@app.command()
+def benchmark(
+    suite_file: Annotated[Path, typer.Argument(help="Path to benchmark suite JSON")],
+    html: Annotated[bool, typer.Option("--html", help="Generate HTML report per case")] = False,
+    output_dir: Annotated[Path, typer.Option("--output-dir", "-o", help="Output directory for reports")] = Path(
+        "benchmark_results"
+    ),
+) -> None:
+    """Run a benchmark suite and show aggregate results."""
+    from agentlens.benchmark import run_benchmark
+    from agentlens.report import generate_html_report
+
+    if not suite_file.exists():
+        typer.echo(f"Error: suite file not found: {suite_file}", err=True)
+        raise typer.Exit(1)
+
+    result = run_benchmark(suite_file)
+
+    typer.echo(f"\nBenchmark: {result.suite_name}")
+    typer.echo(f"Cases: {result.total_cases} | Passed: {result.passed} | Failed: {result.failed}")
+    typer.echo(f"Pass rate: {result.pass_rate:.0%}")
+    typer.echo(f"Average score: {result.average_score:.0%}")
+    typer.echo()
+    for level, score in result.level_averages.items():
+        typer.echo(f"  {level.value.capitalize():15s} {score:.0%}")
+
+    if html:
+        from agentlens.benchmark import BenchmarkSuite
+        from agentlens.models.trace import Trace
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        suite = BenchmarkSuite.model_validate_json(suite_file.read_text())
+        for i, (case, summary) in enumerate(zip(suite.cases, result.case_results, strict=True)):
+            trace = Trace.model_validate_json(Path(case.trace).read_text())
+            out = output_dir / f"case_{i}_{Path(case.trace).stem}.html"
+            generate_html_report(summary, trace, out)
+        typer.echo(f"HTML reports written to {output_dir}/")
+
+
 @app.command()
 def serve(
     mode: Annotated[str, typer.Option("--mode", "-m", help="Server mode: mock|proxy|mailbox")] = "mock",
@@ -105,6 +162,7 @@ def serve(
         Path | None,
         typer.Option("--traces-dir", help="Directory to auto-save trace JSON files"),
     ] = Path("traces"),
+    session: Annotated[str | None, typer.Option("--session", help="Default session ID for traces")] = None,
 ) -> None:
     """Start the AgentLens proxy server."""
     import uvicorn
@@ -120,5 +178,6 @@ def serve(
         scenario=scenario,
         timeout=timeout,
         traces_dir=traces_dir,
+        session_id=session,
     )
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)  # noqa: S104  # dev proxy binds all interfaces
