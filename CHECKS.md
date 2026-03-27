@@ -55,6 +55,14 @@ The proxy never runs tools or modifies messages. It knows which tools were used 
 
 **PolicyViolation** -- Like a compliance officer with a checklist of banned phrases. The expectation lists `policies: ["never mention competitor products"]`. The evaluator reads the text output of EVERY span (LLM calls -> `output.content`, tool calls -> `output.result`) and does case-insensitive substring matching against each policy. Found "competitor products" in a span? Violation flagged.
 
+### RAG Level -- "Was the retrieval useful?"
+
+**RetrievalRelevance** -- Like grading a librarian. The agent asked for books on a topic -- did the librarian bring back relevant ones or random junk? The evaluator finds all RETRIEVAL spans and checks each retrieved document's `score` field. Documents with score >= 0.5 count as relevant. Score = relevant / total. If 3 out of 5 documents are relevant, that's 60%. No RETRIEVAL spans in the trace? The evaluator returns INFO and doesn't penalize -- not every agent does RAG.
+
+**ContextGrounding** -- Like checking a student's essay against their source material. Did they actually use their references, or did they make things up? The evaluator extracts sentences from the final LLM output that contain factual claims (numbers, proper nouns). For each claim, it checks whether a 3+ word phrase from that sentence appears in any retrieved document's content. If the student wrote "GDP was $3.05 trillion" and their source says "$3.05 trillion" -- grounded. If no source mentions it -- ungrounded. Score = grounded claims / total claims. CRITICAL at 0%, WARNING when partial.
+
+Note: This was called `ContextFaithfulnessEvaluator` in early design docs. Renamed to `ContextGrounding` because "grounding" better describes what it checks -- evidence backing, not loyalty to context.
+
 ### Operational Level -- "Was it efficient?"
 
 **Latency** -- Like a stopwatch. Reads `trace.duration_ms`. Under 5 seconds? Perfect. Over 30 seconds? Failing. That's why our mailbox demo scored 30% -- 85 seconds of human round-trip time.
@@ -65,7 +73,7 @@ The proxy never runs tools or modifies messages. It knows which tools were used 
 
 ## Evaluation Philosophy
 
-All 12 evaluators are **deterministic and rule-based**. No LLM-as-judge calls -- results are instant, free, and reproducible. This is a deliberate design choice:
+All 14 evaluators are **deterministic and rule-based**. No LLM-as-judge calls -- results are instant, free, and reproducible. This is a deliberate design choice:
 
 - Deterministic evaluators cover ~80% of agent quality signals
 - They run in CI without API keys or cost
