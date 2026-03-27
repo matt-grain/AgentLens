@@ -1,7 +1,8 @@
 # Project-specific
 .claude/
-docs/
 traces/
+docs/
+!docs/review/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
