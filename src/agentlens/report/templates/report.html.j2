@@ -320,6 +320,47 @@
   .evidence li { padding: 0.1rem 0; }
   .evidence li::before { content: "— "; color: var(--accent-dim); }
 
+  /* Tooltip */
+  .tooltip-trigger {
+    cursor: help;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-left: 0.35rem;
+    position: relative;
+  }
+  .tooltip-trigger:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-deep);
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* Level group header */
+  .level-header {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .level-header:first-child { margin-top: 0; }
+
   /* Footer */
   footer {
     margin-top: 4rem;
@@ -409,24 +450,30 @@
     {% endfor %}
   </div>
 
-  {# Detailed evaluator results #}
+  {# Detailed evaluator results grouped by level #}
   <div class="section">
     <h2>Evaluator Results</h2>
-    {% for result in summary.results %}
-      {% set cls = score_class(result.score) %}
-      <div class="result-row">
-        <span class="result-name">{{ result.evaluator_name }}</span>
-        <span class="result-level">{{ result.level.value }}</span>
-        <span class="result-score {{ cls }}">{{ score_pct(result.score) }}</span>
-        <span class="result-msg">{{ result.message }}</span>
-        {% if result.evidence %}
-          <ul class="evidence">
-            {% for ev in result.evidence %}
-              <li>{{ ev }}</li>
-            {% endfor %}
-          </ul>
-        {% endif %}
-      </div>
+    {% for level in level_order %}
+      {% set level_results = summary.results | selectattr("level", "equalto", level) | list %}
+      {% if level_results %}
+        <h3 class="level-header">{{ level.value | upper }}</h3>
+        {% for result in level_results %}
+          {% set cls = score_class(result.score) %}
+          <div class="result-row">
+            <span class="result-name">{{ result.evaluator_name }}</span>
+            <span class="tooltip-trigger" data-tip="{{ tooltips.get(result.evaluator_name, '') }}">(?) </span>
+            <span class="result-score {{ cls }}">{{ score_pct(result.score) }}</span>
+            <span class="result-msg">{{ result.message }}</span>
+            {% if result.evidence %}
+              <ul class="evidence">
+                {% for ev in result.evidence %}
+                  <li>{{ ev }}</li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
     {% endfor %}
   </div>
 
