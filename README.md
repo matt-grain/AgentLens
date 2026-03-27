@@ -134,9 +134,10 @@ uv run agentlens evaluate path/to/trace.json --html --output report.html
 Start the proxy server:
 
 ```bash
-uv run agentlens serve
-uv run agentlens serve --mode proxy --proxy-to https://api.openai.com
-uv run agentlens serve --port 8650 --scenario happy_path
+uv run agentlens serve                                          # mock mode (canned responses)
+uv run agentlens serve --mode proxy --proxy-to https://api.openai.com  # forward to real LLM
+uv run agentlens serve --mode mailbox --traces-dir traces       # mailbox mode (external brain)
+uv run agentlens serve --mode mailbox --timeout 120             # custom timeout (default 300s)
 ```
 
 ## Writing Custom Evaluators
