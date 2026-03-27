@@ -140,6 +140,18 @@ uv run agentlens serve --mode mailbox --traces-dir traces       # mailbox mode (
 uv run agentlens serve --mode mailbox --timeout 120             # custom timeout (default 300s)
 ```
 
+Export a trace in OpenTelemetry format (for Jaeger, Grafana Tempo, Datadog):
+
+```bash
+uv run agentlens export-otel traces/abc123.json -o trace_otel.json
+```
+
+Run a benchmark suite (aggregate evaluation over multiple traces):
+
+```bash
+uv run agentlens benchmark benchmarks/default.json
+```
+
 ## Writing Custom Evaluators
 
 Implement the `Evaluator` protocol — a name, a level, and an `evaluate` method:
