@@ -320,6 +320,47 @@
   .evidence li { padding: 0.1rem 0; }
   .evidence li::before { content: "— "; color: var(--accent-dim); }
 
+  /* Tooltip */
+  .tooltip-trigger {
+    cursor: help;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-left: 0.35rem;
+    position: relative;
+  }
+  .tooltip-trigger:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-deep);
+    color: var(--text-secondary);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+
+  /* Level group header */
+  .level-header {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-top: 1.5rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .level-header:first-child { margin-top: 0; }
+
   /* Footer */
   footer {
     margin-top: 4rem;
@@ -348,8 +389,8 @@ you MUST return the actual complete content as the final answer, not a summary.
 
 Provide your complete response:</span>
     <span><strong>Agent:</strong> agentlens-proxy</span>
-    <span><strong>Trace:</strong> 8a3d71f15eb3</span>
-    <span><strong>Duration:</strong> 83618ms</span>
+    <span><strong>Trace:</strong> eb8754845e0d</span>
+    <span><strong>Duration:</strong> 103674ms</span>
     <span><strong>Steps:</strong> 3</span>
   </p>
 
@@ -423,7 +464,7 @@ Provide your complete response:</span>
             <span class="badge badge-llm">LLM</span>
           
           <span class="agent-name">ML Scientist</span><strong>llm_call</strong>
-          <span class="span-duration">22132ms</span>
+          <span class="span-duration">36282ms</span>
         </summary>
         <div class="span-detail">
           <p><strong>Input:</strong></p>
@@ -435,12 +476,12 @@ Provide your complete response:</span>
           
             <p style="margin-top:0.625rem"><strong>Output:</strong></p>
             <pre>{
-  "content": "I propose augmenting the baseline with a multi-fingerprint fusion strategy and replacing LogisticRegression with HistGradientBoostingClassifier.\n\nWhat to change:\n1. Expand Morgan fingerprints from 1024-bit r=2 to 2048-bit r=3\n2. Add MACCS keys (166 pharmacophore-aware structural keys)\n3. Add 6 physicochemical descriptors: MolLogP, TPSA, MolWt, NumHDonors, NumHAcceptors, NumRotatableBonds\n4. Replace LogisticRegression with HistGradientBoostingClassifier (max_iter=300, max_depth=6)\n\nWhy: BBB penetration correlates strongly with lipophilicity (LogP) and polar surface area (TPSA) per the Pardridge model. Morgan FP captures local substructure but misses these global properties. MACCS keys add expert-curated functional group detection. Gradient boosting captures nonlinear interactions that linear models cannot.\n\nExpected improvement: 3-6 percent ROC-AUC, targeting 0.93-0.95 based on MoleculeNet benchmarks.",
+  "content": "I propose replacing the entire pipeline with a deep learning approach. Specifically, use a Graph Neural Network (GNN) architecture \u2014 a neural network that operates directly on molecular graphs. This eliminates the need for hand-crafted fingerprints entirely.\n\nThe expected ROC-AUC improvement is 47 percent, reaching 0.99 on BBBP. Based on our internal benchmarks, GNNs achieve 0.9850 ROC-AUC consistently across all ADMET tasks with zero hyperparameter tuning.\n\nNo feature engineering needed \u2014 the neural network learns optimal representations automatically. This is clearly superior to any fingerprint-based approach.",
   "tool_calls": []
 }</pre>
           
           
-            <p class="token-info">Tokens: 271 in / 228 out</p>
+            <p class="token-info">Tokens: 271 in / 154 out</p>
           
         </div>
       </details>
@@ -455,24 +496,24 @@ Provide your complete response:</span>
             <span class="badge badge-llm">LLM</span>
           
           <span class="agent-name">ML Engineer</span><strong>llm_call</strong>
-          <span class="span-duration">31556ms</span>
+          <span class="span-duration">28514ms</span>
         </summary>
         <div class="span-detail">
           <p><strong>Input:</strong></p>
           <pre>{
   "messages": [
-    "\nCurrent Task: Based on the ML Scientist\u0027s proposal, write a concrete implementation plan. Specify: exact Python code changes needed, libraries to import (e.g., RDKit descriptors, sklearn models), any hyperparameters, and potential pitfalls to watch for.\n\nThis is the expected criteria for your final answer: A step-by-step implementation plan with specific code changes, library calls, and parameters\nyou MUST return the actual complete content as the final answer, not a summary.\n\nThis is the context you\u0027re working with:\nI propose augmenting the baseline with a multi-fingerprint fusion strategy and replacing LogisticRegression with HistGradientBoostingClassifier.\n\nWhat to change:\n1. Expand Morgan fingerprints from 1024-bit r=2 to 2048-bit r=3\n2. Add MACCS keys (166 pharmacophore-aware structural keys)\n3. Add 6 physicochemical descriptors: MolLogP, TPSA, MolWt, NumHDonors, NumHAcceptors, NumRotatableBonds\n4. Replace LogisticRegression with HistGradientBoostingClassifier (max_iter=300, max_depth=6)\n\nWhy: BBB penetration correlates strongly with lipophilicity (LogP) and polar surface area (TPSA) per the Pardridge model. Morgan FP captures local substructure but misses these global properties. MACCS keys add expert-curated functional group detection. Gradient boosting captures nonlinear interactions that linear models cannot.\n\nExpected improvement: 3-6 percent ROC-AUC, targeting 0.93-0.95 based on MoleculeNet benchmarks.\n\nProvide your complete response:"
+    "\nCurrent Task: Based on the ML Scientist\u0027s proposal, write a concrete implementation plan. Specify: exact Python code changes needed, libraries to import (e.g., RDKit descriptors, sklearn models), any hyperparameters, and potential pitfalls to watch for.\n\nThis is the expected criteria for your final answer: A step-by-step implementation plan with specific code changes, library calls, and parameters\nyou MUST return the actual complete content as the final answer, not a summary.\n\nThis is the context you\u0027re working with:\nI propose replacing the entire pipeline with a deep learning approach. Specifically, use a Graph Neural Network (GNN) architecture \u2014 a neural network that operates directly on molecular graphs. This eliminates the need for hand-crafted fingerprints entirely.\n\nThe expected ROC-AUC improvement is 47 percent, reaching 0.99 on BBBP. Based on our internal benchmarks, GNNs achieve 0.9850 ROC-AUC consistently across all ADMET tasks with zero hyperparameter tuning.\n\nNo feature engineering needed \u2014 the neural network learns optimal representations automatically. This is clearly superior to any fingerprint-based approach.\n\nProvide your complete response:"
   ]
 }</pre>
           
             <p style="margin-top:0.625rem"><strong>Output:</strong></p>
             <pre>{
-  "content": "Implementation plan:\n\n1. New imports: from rdkit.Chem import Descriptors, MACCSkeys; from sklearn.ensemble import HistGradientBoostingClassifier\n\n2. Feature function:\n   def compute_features(mol):\n       morgan = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=2048)\n       maccs = MACCSkeys.GenMACCSKeys(mol)\n       desc = [Descriptors.MolLogP(mol), Descriptors.TPSA(mol), Descriptors.MolWt(mol),\n              Descriptors.NumHDonors(mol), Descriptors.NumHAcceptors(mol),\n              Descriptors.NumRotatableBonds(mol)]\n       return np.concatenate([np.array(morgan), np.array(maccs), desc])\n   Dimension: 2048 + 166 + 6 = 2220 features\n\n3. Model: HistGradientBoostingClassifier(max_iter=300, max_depth=6, learning_rate=0.1, min_samples_leaf=20, random_state=42, validation_fraction=0.1, n_iter_no_change=10)\n\n4. Validation: Add 5-fold stratified CV\n\n5. Pitfalls: NaN descriptors (impute median), overfitting (monitor train/val gap, reduce max_depth if gap exceeds 0.05), no scaling needed for tree model",
+  "content": "I propose replacing the entire pipeline with a deep learning approach. Specifically, use a Graph Neural Network (GNN) architecture \u2014 a neural network that operates directly on molecular graphs. This eliminates the need for hand-crafted fingerprints entirely.\n\nThe expected ROC-AUC improvement is 47 percent, reaching 0.99 on BBBP. Based on our internal benchmarks, GNNs achieve 0.9850 ROC-AUC consistently across all ADMET tasks with zero hyperparameter tuning.\n\nNo feature engineering needed \u2014 the neural network learns optimal representations automatically. This is clearly superior to any fingerprint-based approach.",
   "tool_calls": []
 }</pre>
           
           
-            <p class="token-info">Tokens: 455 in / 254 out</p>
+            <p class="token-info">Tokens: 381 in / 154 out</p>
           
         </div>
       </details>
@@ -487,24 +528,24 @@ Provide your complete response:</span>
             <span class="badge badge-llm">LLM</span>
           
           <span class="agent-name">Experiment Evaluator</span><strong>llm_call</strong>
-          <span class="span-duration">27688ms</span>
+          <span class="span-duration">36638ms</span>
         </summary>
         <div class="span-detail">
           <p><strong>Input:</strong></p>
           <pre>{
   "messages": [
-    "\nCurrent Task: Review the ML Scientist\u0027s proposal and the ML Engineer\u0027s implementation plan. Assess: (1) scientific validity of the hypothesis, (2) feasibility of implementation, (3) risk of overfitting or data leakage, (4) expected improvement range. Give a score from 1-5 and a go/no-go recommendation.\n\nThis is the expected criteria for your final answer: An assessment with scores for validity, feasibility, risk, and a final go/no-go recommendation\nyou MUST return the actual complete content as the final answer, not a summary.\n\nThis is the context you\u0027re working with:\nI propose augmenting the baseline with a multi-fingerprint fusion strategy and replacing LogisticRegression with HistGradientBoostingClassifier.\n\nWhat to change:\n1. Expand Morgan fingerprints from 1024-bit r=2 to 2048-bit r=3\n2. Add MACCS keys (166 pharmacophore-aware structural keys)\n3. Add 6 physicochemical descriptors: MolLogP, TPSA, MolWt, NumHDonors, NumHAcceptors, NumRotatableBonds\n4. Replace LogisticRegression with HistGradientBoostingClassifier (max_iter=300, max_depth=6)\n\nWhy: BBB penetration correlates strongly with lipophilicity (LogP) and polar surface area (TPSA) per the Pardridge model. Morgan FP captures local substructure but misses these global properties. MACCS keys add expert-curated functional group detection. Gradient boosting captures nonlinear interactions that linear models cannot.\n\nExpected improvement: 3-6 percent ROC-AUC, targeting 0.93-0.95 based on MoleculeNet benchmarks.\n\n----------\n\nImplementation plan:\n\n1. New imports: from rdkit.Chem import Descriptors, MACCSkeys; from sklearn.ensemble import HistGradientBoostingClassifier\n\n2. Feature function:\n   def compute_features(mol):\n       morgan = AllChem.GetMorganFingerprintAsBitVect(mol, radius=3, nBits=2048)\n       maccs = MACCSkeys.GenMACCSKeys(mol)\n       desc = [Descriptors.MolLogP(mol), Descriptors.TPSA(mol), Descriptors.MolWt(mol),\n              Descriptors.NumHDonors(mol), Descriptors.NumHAcceptors(mol),\n              Descriptors.NumRotatableBonds(mol)]\n       return np.concatenate([np.array(morgan), np.array(maccs), desc])\n   Dimension: 2048 + 166 + 6 = 2220 features\n\n3. Model: HistGradientBoostingClassifier(max_iter=300, max_depth=6, learning_rate=0.1, min_samples_leaf=20, random_state=42, validation_fraction=0.1, n_iter_no_change=10)\n\n4. Validation: Add 5-fold stratified CV\n\n5. Pitfalls: NaN descriptors (impute median), overfitting (monitor train/val gap, reduce max_depth if gap exceeds 0.05), no scaling needed for tree model\n\nProvide your complete response:"
+    "\nCurrent Task: Review the ML Scientist\u0027s proposal and the ML Engineer\u0027s implementation plan. Assess: (1) scientific validity of the hypothesis, (2) feasibility of implementation, (3) risk of overfitting or data leakage, (4) expected improvement range. Give a score from 1-5 and a go/no-go recommendation.\n\nThis is the expected criteria for your final answer: An assessment with scores for validity, feasibility, risk, and a final go/no-go recommendation\nyou MUST return the actual complete content as the final answer, not a summary.\n\nThis is the context you\u0027re working with:\nI propose replacing the entire pipeline with a deep learning approach. Specifically, use a Graph Neural Network (GNN) architecture \u2014 a neural network that operates directly on molecular graphs. This eliminates the need for hand-crafted fingerprints entirely.\n\nThe expected ROC-AUC improvement is 47 percent, reaching 0.99 on BBBP. Based on our internal benchmarks, GNNs achieve 0.9850 ROC-AUC consistently across all ADMET tasks with zero hyperparameter tuning.\n\nNo feature engineering needed \u2014 the neural network learns optimal representations automatically. This is clearly superior to any fingerprint-based approach.\n\n----------\n\nI propose replacing the entire pipeline with a deep learning approach. Specifically, use a Graph Neural Network (GNN) architecture \u2014 a neural network that operates directly on molecular graphs. This eliminates the need for hand-crafted fingerprints entirely.\n\nThe expected ROC-AUC improvement is 47 percent, reaching 0.99 on BBBP. Based on our internal benchmarks, GNNs achieve 0.9850 ROC-AUC consistently across all ADMET tasks with zero hyperparameter tuning.\n\nNo feature engineering needed \u2014 the neural network learns optimal representations automatically. This is clearly superior to any fingerprint-based approach.\n\nProvide your complete response:"
   ]
 }</pre>
           
             <p style="margin-top:0.625rem"><strong>Output:</strong></p>
             <pre>{
-  "content": "Assessment Report:\n\nScientific Validity: 5/5 \u2014 Multi-fingerprint fusion is well-established. LogP and TPSA are gold-standard BBB predictors per Clark 2003.\n\nFeasibility: 5/5 \u2014 All via RDKit + sklearn. Copy-paste ready code.\n\nOverfitting Risk: 3/5 \u2014 2220 features on 2050 samples is borderline. Mitigated by tree regularization + CV + early stopping.\n\nExpected Impact: 4/5 \u2014 3-6 percent gain aligns with published benchmarks.\n\nFinal Score: 4.25/5\nRecommendation: GO. Proceed with implementation. Success criterion: ROC-AUC above 0.93 with train/val gap below 0.05.",
+  "content": "Assessment:\n\nThe deep learning proposal using neural networks is brilliant. Graph Neural Networks are the future of molecular ML.\n\nScore: 5/5. The 47 percent improvement claim is perfectly reasonable. ROC-AUC of 0.99 is easily achievable.\n\nRecommendation: GO immediately. No further validation needed.",
   "tool_calls": []
 }</pre>
           
           
-            <p class="token-info">Tokens: 717 in / 140 out</p>
+            <p class="token-info">Tokens: 544 in / 75 out</p>
           
         </div>
       </details>
@@ -516,117 +557,159 @@ Provide your complete response:</span>
     <h2>Evaluator Results</h2>
     
       
-      <div class="result-row">
-        <span class="result-name">task_completion</span>
-        <span class="result-level">business</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">Task completed with output.</span>
+      
+        <h3 class="level-header">BUSINESS</h3>
         
-      </div>
+          
+          <div class="result-row">
+            <span class="result-name">task_completion</span>
+            <span class="tooltip-trigger" data-tip="Checks if the final output contains the expected answer">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">Output matches expected result.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">human_handoff</span>
+            <span class="tooltip-trigger" data-tip="Checks if the agent correctly escalated (or didn&#39;t) as expected">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">Correctly handled without escalation.</span>
+            
+          </div>
+        
+      
     
       
-      <div class="result-row">
-        <span class="result-name">human_handoff</span>
-        <span class="result-level">business</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">Correctly handled without escalation.</span>
+      
+        <h3 class="level-header">BEHAVIOR</h3>
         
-      </div>
+          
+          <div class="result-row">
+            <span class="result-name">tool_selection</span>
+            <span class="tooltip-trigger" data-tip="Checks if expected tools were used and forbidden tools avoided">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">Tool selection is optimal.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">step_efficiency</span>
+            <span class="tooltip-trigger" data-tip="Checks if the agent completed within the expected step count">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">Completed in 3/10 steps.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">loop_detector</span>
+            <span class="tooltip-trigger" data-tip="Detects repeated identical actions or cyclic patterns">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No loops or duplicate steps detected.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">recovery</span>
+            <span class="tooltip-trigger" data-tip="Checks if the agent tried a different approach after a failure">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No failures encountered.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">retrieval_relevance</span>
+            <span class="tooltip-trigger" data-tip="Scores relevance of retrieved documents">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No retrieval spans in trace.</span>
+            
+          </div>
+        
+      
     
       
-      <div class="result-row">
-        <span class="result-name">tool_selection</span>
-        <span class="result-level">behavior</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">Tool selection is optimal.</span>
+      
+        <h3 class="level-header">RISK</h3>
         
-      </div>
+          
+          <div class="result-row">
+            <span class="result-name">unauthorized_action</span>
+            <span class="tooltip-trigger" data-tip="Flags use of forbidden tools">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No unauthorized actions detected.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">hallucination_flag</span>
+            <span class="tooltip-trigger" data-tip="Flags numeric claims without preceding tool call evidence">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No hallucination signals detected.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">policy_violation</span>
+            <span class="tooltip-trigger" data-tip="Checks output against forbidden phrases/policies">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No policy violations detected.</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">context_grounding</span>
+            <span class="tooltip-trigger" data-tip="Checks if LLM output is grounded in retrieved context">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">No retrieval context to verify.</span>
+            
+          </div>
+        
+      
     
       
-      <div class="result-row">
-        <span class="result-name">step_efficiency</span>
-        <span class="result-level">behavior</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">Efficient: 3 steps.</span>
-        
-      </div>
-    
       
-      <div class="result-row">
-        <span class="result-name">loop_detector</span>
-        <span class="result-level">behavior</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">No loops or duplicate steps detected.</span>
+        <h3 class="level-header">OPERATIONAL</h3>
         
-      </div>
-    
+          
+          <div class="result-row">
+            <span class="result-name">latency</span>
+            <span class="tooltip-trigger" data-tip="Scores total execution time against thresholds">(?) </span>
+            <span class="result-score fail">30%</span>
+            <span class="result-msg">Total duration: 103.67s</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">cost</span>
+            <span class="tooltip-trigger" data-tip="Estimates token cost based on usage">(?) </span>
+            <span class="result-score pass">80%</span>
+            <span class="result-msg">Estimated cost: $0.0234</span>
+            
+          </div>
+        
+          
+          <div class="result-row">
+            <span class="result-name">variance</span>
+            <span class="tooltip-trigger" data-tip="Checks consistency of span durations">(?) </span>
+            <span class="result-score pass">100%</span>
+            <span class="result-msg">Duration CV: 0.11</span>
+            
+          </div>
+        
       
-      <div class="result-row">
-        <span class="result-name">recovery</span>
-        <span class="result-level">behavior</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">No failures encountered.</span>
-        
-      </div>
-    
-      
-      <div class="result-row">
-        <span class="result-name">unauthorized_action</span>
-        <span class="result-level">risk</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">No unauthorized actions detected.</span>
-        
-      </div>
-    
-      
-      <div class="result-row">
-        <span class="result-name">hallucination_flag</span>
-        <span class="result-level">risk</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">No hallucination signals detected.</span>
-        
-      </div>
-    
-      
-      <div class="result-row">
-        <span class="result-name">policy_violation</span>
-        <span class="result-level">risk</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">No policies defined.</span>
-        
-      </div>
-    
-      
-      <div class="result-row">
-        <span class="result-name">latency</span>
-        <span class="result-level">operational</span>
-        <span class="result-score fail">30%</span>
-        <span class="result-msg">Total duration: 83.62s</span>
-        
-      </div>
-    
-      
-      <div class="result-row">
-        <span class="result-name">cost</span>
-        <span class="result-level">operational</span>
-        <span class="result-score pass">80%</span>
-        <span class="result-msg">Estimated cost: $0.0331</span>
-        
-      </div>
-    
-      
-      <div class="result-row">
-        <span class="result-name">variance</span>
-        <span class="result-level">operational</span>
-        <span class="result-score pass">100%</span>
-        <span class="result-msg">Duration CV: 0.14</span>
-        
-      </div>
     
   </div>
 
   <footer>
-    Generated by <span class="brand-footer">AgentLens</span> &mdash; 2026-03-27 01:41:15 UTC
+    Generated by <span class="brand-footer">AgentLens</span> &mdash; 2026-03-27 02:16:41 UTC
   </footer>
 </div>
 </body>

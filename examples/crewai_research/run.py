@@ -112,8 +112,10 @@ def _run_crew() -> None:
         print("[AgentLens] Proceeding to evaluate whatever traces were captured.\n")
 
 
-def _evaluate_traces() -> None:
+def _evaluate_traces(*, html: bool = False, output: str = "report.html") -> None:
     """Finalise the trace, fetch it, and run AgentLens evaluators."""
+    from pathlib import Path
+
     from agentlens.engine import EvaluationSuite
     from agentlens.models.expectation import TaskExpectation
     from agentlens.models.trace import Trace
@@ -133,8 +135,6 @@ def _evaluate_traces() -> None:
     suite = EvaluationSuite()
     expected = TaskExpectation(
         expected_output="GDP",
-        # The mock server does not return real tool calls, so we keep
-        # expected_tools empty to avoid penalising the trace unfairly.
         forbidden_tools=["send_email", "delete_file"],
         max_steps=20,
     )
@@ -144,8 +144,28 @@ def _evaluate_traces() -> None:
         summary = suite.evaluate(trace, expected)
         print_report(summary, trace, verbose=True)
 
+        if html:
+            from agentlens.report.html import generate_html_report
+
+            out_path = Path(output)
+            generate_html_report(summary, trace, out_path)
+            print(f"\nHTML report written to {out_path}")
+
+
+def _parse_args() -> tuple[bool, str]:
+    """Parse --html and -o arguments."""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="AgentLens CrewAI research demo")
+    parser.add_argument("--html", action="store_true", help="Generate HTML report")
+    parser.add_argument("-o", "--output", default="report.html", help="HTML output path")
+    args = parser.parse_args()
+    return args.html, args.output
+
 
 def main() -> None:
+    html, output = _parse_args()
+
     if not _check_proxy():
         print(
             "[AgentLens] ERROR: Proxy is not running.\nStart it first with:\n\n    uv run agentlens serve --mode mock\n"
@@ -156,7 +176,7 @@ def main() -> None:
     _run_crew()
 
     print("\n[AgentLens] Evaluating captured traces...\n")
-    _evaluate_traces()
+    _evaluate_traces(html=html, output=output)
 
 
 if __name__ == "__main__":
