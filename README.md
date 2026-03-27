@@ -8,7 +8,7 @@
 
 Most people evaluate LLM agents like chatbots — check the final answer and move on. But agents don't just produce outputs, they follow **trajectories**: planning steps, tool calls, retries, and branching paths. Evaluating the final answer alone misses wasteful loops, unauthorized tool use, hallucinated claims without evidence, and cost overruns.
 
-AgentLens evaluates the **full trajectory** at four levels: business goals, behavioral efficiency, risk, and operational performance. All 12 evaluators are deterministic — no LLM-as-judge, instant results, zero cost.
+AgentLens evaluates the **full trajectory** at four levels: business goals, behavioral efficiency, risk, and operational performance. All 14 evaluators are deterministic — no LLM-as-judge, instant results, zero cost.
 
 ![Pharma example](https://github.com/matt-grain/AgentLens/blob/main/examples/pharma_pipeline/report_screenshot.png?raw=true)
 
@@ -63,7 +63,7 @@ Level weights in the overall score: Business 30%, Behavior 30%, Risk 25%, Operat
 
 ### Design Choice: Deterministic Evaluation, No LLM-as-Judge
 
-All 12 evaluators are rule-based and deterministic. There are no LLM calls in the evaluation pipeline — results are instant, free, and reproducible.
+All 14 evaluators are rule-based and deterministic. There are no LLM calls in the evaluation pipeline — results are instant, free, and reproducible.
 
 This means some evaluators flag **signals**, not definitive verdicts:
 
@@ -225,7 +225,7 @@ See `examples/mailbox_brain/` for a standalone brain script and `examples/pharma
 | RAGAS | RAG pipeline quality | LLM-as-judge for faithfulness/relevance |
 | DeepEval | LLM output quality | LLM-as-judge for correctness |
 
-AgentLens is not a replacement for RAGAS or DeepEval — it fills the gap they leave: **did the agent take the right path?** All 12 evaluators are deterministic (no LLM calls), making evaluations instant, free, and reproducible in CI.
+AgentLens is not a replacement for RAGAS or DeepEval — it fills the gap they leave: **did the agent take the right path?** All 14 evaluators are deterministic (no LLM calls), making evaluations instant, free, and reproducible in CI.
 
 ## Development
 
