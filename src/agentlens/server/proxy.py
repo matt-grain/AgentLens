@@ -104,6 +104,8 @@ def create_app(
 
     @app.post("/v1/chat/completions")
     async def chat_completions(request: ChatCompletionRequest) -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
+        request_start = datetime.now(UTC)
+
         if mode == ServerMode.MOCK:
             canned = REGISTRY.next_response(active_scenario[0])
             response = _canned_to_response(canned, request.model)
@@ -125,12 +127,18 @@ def create_app(
             content = mb_response.content
             tool_calls_raw = mb_response.tool_calls
             content, tool_calls_raw = maybe_wrap_tool_calls(content, tool_calls_raw, request.tools)
-            usage: dict[str, Any] = {"prompt_tokens": 0, "completion_tokens": 0}
+            # Rough estimate: ~4 chars per token (standard heuristic)
+            total_input_chars = sum(len(m.content or "") for m in request.messages)
+            total_output_chars = len(content)
+            usage: dict[str, Any] = {
+                "prompt_tokens": max(1, total_input_chars // 4),
+                "completion_tokens": max(1, total_output_chars // 4),
+            }
             response = _build_openai_response(content, tool_calls_raw, usage, request.model)
         else:
             response, content, tool_calls_raw, usage = await _proxy_request(request, proxy_target)
 
-        collector.record_llm_call(request.messages, content, tool_calls_raw, usage)
+        collector.record_llm_call(request.messages, content, tool_calls_raw, usage, start_time=request_start)
 
         resp_dict = response.model_dump()
         if tool_calls_raw:

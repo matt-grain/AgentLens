@@ -71,7 +71,9 @@ def _print_trajectory(console: Console, trace: Trace) -> None:
     for span in trace.spans:
         icon = _span_icon(span)
         duration = span.duration_ms
-        console.print(f"  {icon} [{span.span_type}] [bold]{span.name}[/bold]  ({duration}ms)")
+        agent = span.metadata.get("agent_name", "")
+        agent_prefix = f"[dim][{agent}][/dim] " if agent else ""
+        console.print(f"  {icon} [{span.span_type}] {agent_prefix}[bold]{span.name}[/bold]  ({duration}ms)")
     console.print()
 
 

@@ -216,6 +216,13 @@
   .span-icon.warn { color: var(--warning); }
   .span-icon.fail { color: var(--danger); }
 
+  .agent-name {
+    color: var(--text-tertiary);
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    margin-right: 0.5rem;
+  }
+
   .span-duration {
     margin-left: auto;
     font-family: var(--mono);
@@ -384,7 +391,7 @@
           {% else %}
             <span class="badge badge-tool">TOOL</span>
           {% endif %}
-          <strong>{{ span.name }}</strong>
+          {% if span.metadata.get('agent_name') %}<span class="agent-name">{{ span.metadata['agent_name'] }}</span>{% endif %}<strong>{{ span.name }}</strong>
           <span class="span-duration">{{ span.duration_ms }}ms</span>
         </summary>
         <div class="span-detail">

@@ -19,19 +19,35 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _extract_agent_name(messages: list[ChatMessage]) -> str | None:
+    system_msg = next((m for m in messages if m.role == MessageRole.SYSTEM), None)
+    if system_msg and system_msg.content:
+        text = system_msg.content
+        if text.startswith("You are "):
+            # CrewAI format: "You are {Role}. {backstory...}"
+            end = text.find(".", 8)
+            if end > 8:
+                return text[8:end]
+    return None
+
+
 def _build_llm_span(
     messages: list[ChatMessage],
     content: str,
     tool_calls: list[dict[str, Any]],
     usage: dict[str, int],
     llm_span_id: str,
+    start_time: datetime,
+    agent_name: str | None = None,
 ) -> Span:
     last_user = next((m.content for m in reversed(messages) if m.role == MessageRole.USER), "")
     token_usage = TokenUsage(
         input_tokens=usage.get("prompt_tokens", 0),
         output_tokens=usage.get("completion_tokens", 0),
     )
-    now = _now()
+    metadata: dict[str, Any] = {}
+    if agent_name:
+        metadata["agent_name"] = agent_name
     return Span(
         id=llm_span_id,
         span_type=SpanType.LLM_CALL,
@@ -39,17 +55,17 @@ def _build_llm_span(
         input={"messages": [last_user]},
         output={"content": content, "tool_calls": tool_calls},
         status=SpanStatus.SUCCESS,
-        start_time=now,
-        end_time=now,
+        start_time=start_time,
+        end_time=_now(),
         token_usage=token_usage,
+        metadata=metadata,
     )
 
 
-def _build_tool_spans(tool_calls: list[dict[str, Any]], parent_id: str) -> list[Span]:
+def _build_tool_spans(tool_calls: list[dict[str, Any]], parent_id: str, start_time: datetime) -> list[Span]:
     spans: list[Span] = []
     for tc in tool_calls:
         fn = tc.get("function", {})
-        now = _now()
         spans.append(
             Span(
                 id=_new_id(),
@@ -58,8 +74,8 @@ def _build_tool_spans(tool_calls: list[dict[str, Any]], parent_id: str) -> list[
                 input={"arguments": fn.get("arguments", "")},
                 output={"result": ""},
                 status=SpanStatus.SUCCESS,
-                start_time=now,
-                end_time=now,
+                start_time=start_time,
+                end_time=start_time,
                 parent_id=parent_id,
             )
         )
@@ -83,15 +99,22 @@ class TraceCollector:
         content: str,
         tool_calls: list[dict[str, Any]],
         usage: dict[str, int],
+        start_time: datetime | None = None,
+        agent_name: str | None = None,
     ) -> None:
         if not self.current_spans:
             first_user = next((m.content for m in messages if m.role == MessageRole.USER), None)
             self.current_task = first_user or "unknown"
 
+        actual_start = start_time if start_time is not None else _now()
+        if agent_name is None:
+            agent_name = _extract_agent_name(messages)
+
         llm_span_id = _new_id()
-        self.current_spans.append(_build_llm_span(messages, content, tool_calls, usage, llm_span_id))
+        llm_span = _build_llm_span(messages, content, tool_calls, usage, llm_span_id, actual_start, agent_name)
+        self.current_spans.append(llm_span)
         if tool_calls:
-            self.current_spans.extend(_build_tool_spans(tool_calls, llm_span_id))
+            self.current_spans.extend(_build_tool_spans(tool_calls, llm_span_id, llm_span.end_time))
 
     def finalize(self) -> None:
         if not self.current_spans:

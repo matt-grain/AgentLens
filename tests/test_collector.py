@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from agentlens.models.trace import SpanType, Trace
@@ -184,3 +185,49 @@ def test_finalize_without_traces_dir_does_not_save(tmp_path: Path) -> None:
 
     # Assert
     assert list(tmp_path.glob("*.json")) == []
+
+
+# ---------------------------------------------------------------------------
+# start_time and agent identity
+# ---------------------------------------------------------------------------
+
+
+def test_record_llm_call_with_start_time_sets_duration() -> None:
+    # Arrange
+    collector = TraceCollector()
+    start = datetime.now(UTC) - timedelta(milliseconds=500)
+
+    # Act
+    collector.record_llm_call(_make_messages(), "response", [], _make_usage(), start_time=start)
+
+    # Assert
+    span = collector.current_spans[0]
+    assert span.duration_ms > 0
+
+
+def test_record_llm_call_extracts_agent_name_from_system_message() -> None:
+    # Arrange
+    collector = TraceCollector()
+    messages = [
+        ChatMessage(role=MessageRole.SYSTEM, content="You are Research Analyst. You investigate topics thoroughly."),
+        ChatMessage(role=MessageRole.USER, content="hello"),
+    ]
+
+    # Act
+    collector.record_llm_call(messages, "response", [], _make_usage())
+
+    # Assert
+    span = collector.current_spans[0]
+    assert span.metadata.get("agent_name") == "Research Analyst"
+
+
+def test_record_llm_call_no_system_message_no_agent_name() -> None:
+    # Arrange
+    collector = TraceCollector()
+
+    # Act
+    collector.record_llm_call(_make_messages(), "response", [], _make_usage())
+
+    # Assert
+    span = collector.current_spans[0]
+    assert "agent_name" not in span.metadata
