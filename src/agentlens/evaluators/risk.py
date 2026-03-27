@@ -15,7 +15,14 @@ _HEDGING_PHRASES: tuple[str, ...] = (
     "as of my knowledge",
 )
 
-_NUMERIC_CLAIM_PATTERN = re.compile(r"\d+\.?\d*%|\$\d+|\d+ (million|billion)", re.IGNORECASE)
+_NUMERIC_CLAIM_PATTERN = re.compile(
+    r"\d+\.?\d*%"  # 47%, 3.5%
+    r"|\$\d+"  # $500, $3
+    r"|\d+ (?:million|billion|trillion)"  # 5 million, 3 trillion
+    r"|\d+\.?\d* (?:percent|pct)"  # 47 percent, 3.5 pct
+    r"|0\.\d{2,}",  # 0.99, 0.8951 (bare decimals likely scores/metrics)
+    re.IGNORECASE,
+)
 
 
 class UnauthorizedActionDetector:
