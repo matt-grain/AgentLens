@@ -277,6 +277,69 @@ Three intervention levels:
 
 The agent never knows it's being evaluated — the proxy remains invisible at the protocol level. This is critical for pharma and regulated environments where you want to **prevent** bad outputs, not just detect them after.
 
+#### Choosing Guard Actions: What Happens in Practice
+
+Guards are invisible to the agent framework — but the framework still has to process whatever the guard returns. Each action has different consequences depending on how the orchestrator (CrewAI, AutoGen, LangChain, etc.) handles unexpected responses.
+
+**WARN** — safest for most cases:
+
+The LLM response is returned normally with a warning appended. The orchestrator parses the response as usual. On the **next** LLM call, the warning is part of the conversation history, so the LLM sees it and can self-correct.
+
+```
+LLM response:  "The compound has 87% oral bioavailability."
+Guard appends: "[GUARD WARNING: Unverified numeric claim without tool evidence]"
+→ CrewAI parses the response normally (output format intact)
+→ On next turn, the LLM reads the warning and may verify the claim via a tool call
+```
+
+**BLOCK** — for hard safety boundaries:
+
+The original response is replaced entirely. The orchestrator receives text like *"I need to reconsider this approach."* instead of the expected structured output. In CrewAI, this means:
+
+1. The agent tries to parse the response as its expected output format → **fails**
+2. CrewAI retries with the original prompt + an error message (*"Wrong tool output format"*)
+3. The LLM generates a **new** response — which may not repeat the violation
+4. After `max_iter` retries without success → the task fails
+
+This is a valid safety outcome: **retry and self-correct, or fail safely** rather than act on a policy violation. Reserve BLOCK for things that should never pass through (e.g., forbidden tool use, dangerous code patterns).
+
+**ESCALATE** — the pharma answer:
+
+The response is held in the mailbox until a human expert reviews it. The orchestrator's HTTP call simply **blocks** (waits) until the human approves, modifies, or rejects the response. From CrewAI's perspective, the LLM is just slow — no parsing errors, no retries. The human sees the full prompt, the LLM's proposed response, and the evaluation flag, then decides what to return.
+
+```
+Agent → proxy → LLM responds → guard flags policy violation → mailbox holds response
+                                                                  ↓
+                                              Human expert reviews: "The proposed hypothesis
+                                              uses a deprecated assay method. Rejecting."
+                                                                  ↓
+                                              Agent receives rejection → proposes alternative
+```
+
+**Recommended configuration for regulated environments (pharma, finance):**
+
+```yaml
+rules:
+  # Soft signals: warn and let the agent self-correct
+  - evaluator_name: hallucination_flag
+    threshold: 0.5
+    action: warn
+
+  - evaluator_name: loop_detector
+    threshold: 0.5
+    action: warn
+
+  # Hard safety: block immediately
+  - evaluator_name: policy_violation
+    threshold: 1.0
+    action: block
+
+  # Critical decisions: human in the loop
+  - evaluator_name: unauthorized_action
+    threshold: 1.0
+    action: escalate
+```
+
 ### Framework-Agnostic by Architecture
 
 AgentLens speaks the **OpenAI-compatible API** — the de facto standard. Any agent framework that can set a base URL works without code changes:
