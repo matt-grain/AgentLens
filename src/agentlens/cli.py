@@ -163,12 +163,19 @@ def serve(
         typer.Option("--traces-dir", help="Directory to auto-save trace JSON files"),
     ] = Path("traces"),
     session: Annotated[str | None, typer.Option("--session", help="Default session ID for traces")] = None,
+    guards: Annotated[Path | None, typer.Option("--guards", help="YAML guard config for real-time evaluation")] = None,
 ) -> None:
     """Start the AgentLens proxy server."""
     import uvicorn
 
+    from agentlens.server.guards import GuardConfig
     from agentlens.server.models import ServerMode
     from agentlens.server.proxy import create_app
+
+    guards_config: GuardConfig | None = None
+    if guards is not None:
+        guards_config = GuardConfig.from_yaml(guards)
+        typer.echo(f"Guards enabled: {len(guards_config.rules)} rule(s) from {guards}")
 
     if traces_dir is not None:
         typer.echo(f"Traces will be saved to: {traces_dir.resolve()}")
@@ -179,5 +186,6 @@ def serve(
         timeout=timeout,
         traces_dir=traces_dir,
         session_id=session,
+        guards_config=guards_config,
     )
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port)  # noqa: S104  # dev proxy binds all interfaces

@@ -2,7 +2,7 @@
 
 **Trajectory-first agent evaluation framework.**
 
-![Python](https://img.shields.io/badge/python-3.13-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-123%20passing-brightgreen)
+![Python](https://img.shields.io/badge/python-3.13-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Tests](https://img.shields.io/badge/tests-138%20passing-brightgreen)
 
 ## The Problem
 
@@ -48,7 +48,7 @@ Agent (CrewAI, etc.)              AgentLens Proxy                    LLM
   │                              Evaluate → Report                    │
 ```
 
-Point any agent at `http://localhost:8650` via `OPENAI_API_BASE` and traces are captured automatically. The proxy never runs tools or modifies messages — it just observes the conversation. Three modes: **mock** (canned responses, zero cost), **proxy** (forwards to real LLM), **mailbox** (queues for external brain).
+Point any agent at `http://localhost:8650` via `OPENAI_API_BASE` and traces are captured automatically. The proxy never runs tools or modifies messages — it just observes the conversation. Three modes: **mock** (canned responses, zero cost), **proxy** (forwards to real LLM), **mailbox** (queues for external brain). Optional **guards** add real-time evaluation hooks that can warn, block, or escalate responses before they reach the agent.
 
 ## 4-Level Evaluation Framework
 
@@ -138,6 +138,7 @@ uv run agentlens serve                                          # mock mode (can
 uv run agentlens serve --mode proxy --proxy-to https://api.openai.com  # forward to real LLM
 uv run agentlens serve --mode mailbox --traces-dir traces       # mailbox mode (external brain)
 uv run agentlens serve --mode mailbox --timeout 120             # custom timeout (default 300s)
+uv run agentlens serve --mode proxy --proxy-to https://api.openai.com --guards guards.yaml  # with real-time guards
 ```
 
 Export a trace in OpenTelemetry format (for Jaeger, Grafana Tempo, Datadog):
@@ -244,6 +245,38 @@ The mailbox mode turns AgentLens into a **debugger for agent orchestration**. Li
 
 No other eval framework offers this. Every competitor watches from the outside. AgentLens lets you sit inside the conversation.
 
+### Guards: Real-Time Evaluation Hooks
+
+Guards transform AgentLens from observer to **circuit breaker**. When enabled, the proxy evaluates each LLM response *before* returning it to the agent, using the same deterministic evaluators — but in real time.
+
+```yaml
+# guards.yaml
+enabled: true
+rules:
+  - evaluator_name: hallucination_flag
+    threshold: 0.5
+    action: warn        # append warning to response
+  - evaluator_name: policy_violation
+    threshold: 1.0
+    action: block       # replace response with rejection
+  - evaluator_name: loop_detector
+    threshold: 0.5
+    action: warn
+  - evaluator_name: unauthorized_action
+    threshold: 1.0
+    action: escalate    # route to mailbox for human review
+```
+
+Three intervention levels:
+
+| Action | Behavior |
+|--------|----------|
+| **warn** | Appends evaluation warning to the LLM response. Agent sees it as part of the output. |
+| **block** | Replaces the response entirely. Agent thinks the LLM refused. |
+| **escalate** | Routes to mailbox for human review before returning (requires mailbox or auto-creates one). |
+
+The agent never knows it's being evaluated — the proxy remains invisible at the protocol level. This is critical for pharma and regulated environments where you want to **prevent** bad outputs, not just detect them after.
+
 ### Framework-Agnostic by Architecture
 
 AgentLens speaks the **OpenAI-compatible API** — the de facto standard. Any agent framework that can set a base URL works without code changes:
@@ -280,8 +313,9 @@ No SDK wrappers, no monkey-patching, no framework plugins. One proxy, any agent.
 | **Agent identity extraction** | - | - | - | **Y** (unique) |
 | **Provider-agnostic proxy** | - | - | - | **Y** (unique) |
 | **Mailbox mode (agent debugger)** | - | - | - | **Y** (unique) |
+| **Real-time guard hooks** | - | - | - | **Y** (unique) |
 
-AgentLens has **10 capabilities no major platform offers** — 8 unique evaluators + the proxy/mailbox architecture. It's not a replacement for LangSmith (which excels at production monitoring) — it fills the gap between "build an agent" and "know if the agent is good."
+AgentLens has **11 capabilities no major platform offers** — 8 unique evaluators + the proxy/mailbox architecture. It's not a replacement for LangSmith (which excels at production monitoring) — it fills the gap between "build an agent" and "know if the agent is good."
 
 | Tool | Focus | Best For |
 |------|-------|----------|

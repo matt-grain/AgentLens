@@ -149,6 +149,30 @@ class TraceCollector:
         self.current_spans.clear()
         self.current_task = "unknown"
 
+    def build_temp_trace(
+        self,
+        messages: list[ChatMessage],
+        content: str,
+        tool_calls: list[dict[str, Any]],
+        usage: dict[str, int],
+        start_time: datetime,
+    ) -> Trace:
+        """Build a snapshot Trace for guard evaluation without mutating state."""
+        llm_span = _build_llm_span(messages, content, tool_calls, usage, _new_id(), start_time)
+        tool_spans = _build_tool_spans(tool_calls, llm_span.id, llm_span.end_time) if tool_calls else []
+        all_spans = list(self.current_spans) + [llm_span] + tool_spans
+
+        return Trace(
+            id=_new_id(),
+            task=self.current_task or "unknown",
+            agent_name="agentlens-guard",
+            spans=all_spans,
+            final_output=content,
+            started_at=all_spans[0].start_time if all_spans else _now(),
+            completed_at=_now(),
+            session_id=self._session_id,
+        )
+
     def get_trace(self, trace_id: str) -> Trace | None:
         return next((t for t in self.traces if t.id == trace_id), None)
 

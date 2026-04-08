@@ -15,6 +15,7 @@ AgentLens is a trajectory-first agent evaluation framework. It captures the full
 | HTML templates | Jinja2 | 3.1+ |
 | CLI | Typer | 0.9+ |
 | HTTP client (proxy) | httpx | 0.27+ |
+| YAML config | PyYAML | 6.0+ |
 
 ## Project Structure
 
@@ -28,7 +29,7 @@ src/agentlens/
 │   ├── evaluation.py    # EvalResult, EvalSummary, EvalLevel, EvalSeverity
 │   └── expectation.py   # TaskExpectation — per-scenario ground truth
 ├── evaluators/
-│   ├── __init__.py      # Evaluator Protocol + default_evaluators()
+│   ├── __init__.py      # Evaluator Protocol + default_evaluators() + guard_evaluators()
 │   ├── business.py      # TaskCompletion, HumanHandoff
 │   ├── behavior.py      # ToolSelection, StepEfficiency, LoopDetector, Recovery
 │   ├── risk.py          # UnauthorizedAction, HallucinationFlag, PolicyViolation
@@ -37,6 +38,7 @@ src/agentlens/
 │   ├── proxy.py         # FastAPI app factory (create_app) — mock/proxy/mailbox modes
 │   ├── collector.py     # TraceCollector — shared span accumulation + trace finalization
 │   ├── mailbox.py       # MailboxQueue — async request/response queue for external brains
+│   ├── guards.py        # Real-time evaluation guards — circuit breaker for agent responses
 │   ├── wrapping.py      # Auto tool-call wrapping for mailbox responses
 │   ├── canned.py        # CannedRegistry + per-scenario mock responses
 │   └── models.py        # OpenAI-compatible request/response Pydantic models
@@ -62,6 +64,7 @@ tests/
 ├── test_server.py       # FastAPI integration tests via TestClient
 ├── test_report.py       # Terminal + HTML report smoke tests
 ├── test_tracer.py       # Tracer + SpanBuilder unit tests
+├── test_guards.py       # Guard unit tests (warn, block, escalate, pass-through)
 ├── test_cli.py          # CLI command tests via subprocess
 └── test_e2e.py          # End-to-end scenario tests
 ```
@@ -105,9 +108,9 @@ class Evaluator(Protocol):
 **Must NOT:** Know about rendering, CLI concerns, or server state.
 
 ### server/
-**Does:** Expose OpenAI-compatible endpoints (`/v1/chat/completions`), capture spans via `TraceCollector`, and finalize traces on `/traces/reset`. Three modes: **mock** (canned responses), **proxy** (forward to real LLM), **mailbox** (queue for external brain). Auto-saves traces to disk when `traces_dir` is set.
+**Does:** Expose OpenAI-compatible endpoints (`/v1/chat/completions`), capture spans via `TraceCollector`, and finalize traces on `/traces/reset`. Three modes: **mock** (canned responses), **proxy** (forward to real LLM), **mailbox** (queue for external brain). Auto-saves traces to disk when `traces_dir` is set. Optional **guards** run risk/behavior evaluators on each response before returning it to the agent (warn/block/escalate).
 
-**Must NOT:** Run evaluators or render reports.
+**Must NOT:** Render reports. (Guards are the exception to "server doesn't run evaluators" — they run a subset of evaluators inline for real-time intervention.)
 
 ```python
 def create_app(
@@ -116,6 +119,7 @@ def create_app(
     scenario: str = "happy_path",
     timeout: float = 300.0,
     traces_dir: Path | None = None,
+    guards_config: GuardConfig | None = None,
 ) -> FastAPI: ...
 ```
 
@@ -159,6 +163,7 @@ A typical proxy-captured evaluation:
 2. Agent calls openai.chat.completions.create(...)
       -> AgentLens proxy receives POST /v1/chat/completions
       -> Returns canned (mock) or proxied (live) response
+      -> If guards enabled: build temp trace, run evaluators, maybe modify response
       -> Appends LLM span + tool spans to current_spans[]
 
 3. POST /traces/reset
@@ -217,6 +222,22 @@ collector.reset()  # finalizes trace, saves to disk, clears state
 
 In mailbox mode, `/v1/chat/completions` requests queue in a `MailboxQueue` instead of returning immediately. An external brain (Claude Code, curl, any HTTP client) polls `GET /mailbox`, reads requests, and submits responses via `POST /mailbox/{id}`. The `wrapping.py` module auto-wraps plain JSON responses as OpenAI `tool_calls` when the request has tools defined — this prevents CrewAI retry loops caused by format mismatches.
 
+### Guards: Real-Time Evaluation Hooks
+
+Guards (`server/guards.py`) run evaluators **inline** between receiving an LLM response and returning it to the agent. Configuration is via YAML (`--guards guards.yaml`).
+
+The guard builds a **temporary Trace** from `collector.current_spans + new response` via `build_temp_trace()` — a non-destructive snapshot that doesn't mutate the collector. This lets existing evaluators run on a growing trace without protocol changes.
+
+Only risk and behavior evaluators are used (via `guard_evaluators()`): hallucination detection, policy violation, unauthorized action, and loop detection. Business and operational evaluators need complete traces.
+
+Three actions: `warn` (append to content), `block` (replace content), `escalate` (route to mailbox for human review). Rules are evaluated in order; first match wins.
+
+```python
+# guards.yaml loaded at startup, passed to create_app()
+guards_config = GuardConfig.from_yaml(Path("guards.yaml"))
+app = create_app(mode=ServerMode.PROXY, guards_config=guards_config)
+```
+
 ## Design Decisions
 
 See [decisions.md](decisions.md) for the full Architecture Decision Records.
@@ -228,3 +249,5 @@ Key decisions at a glance:
 - Single trace per proxy session — kept simple intentionally
 - Mailbox mode for human/AI-in-the-loop — decouples agent execution from LLM response
 - TraceCollector extracted from proxy — shared by all modes, auto-persists to disk
+- Guards use temp trace snapshots — evaluators work unmodified on growing traces
+- Guard escalation reuses mailbox infrastructure — lazy-initialized in non-mailbox modes

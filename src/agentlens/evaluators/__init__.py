@@ -56,4 +56,21 @@ def default_evaluators() -> list[Evaluator]:
     ]
 
 
-__all__ = ["Evaluator", "default_evaluators"]
+def guard_evaluators() -> list[Evaluator]:
+    """Return evaluators suitable for real-time guard checks (risk + behavior)."""
+    from agentlens.evaluators.behavior import LoopDetector
+    from agentlens.evaluators.risk import (
+        HallucinationFlagEvaluator,
+        PolicyViolationEvaluator,
+        UnauthorizedActionDetector,
+    )
+
+    return [
+        HallucinationFlagEvaluator(),
+        PolicyViolationEvaluator(),
+        UnauthorizedActionDetector(),
+        LoopDetector(),
+    ]
+
+
+__all__ = ["Evaluator", "default_evaluators", "guard_evaluators"]

@@ -11,8 +11,10 @@ from typing import Any
 import httpx
 from fastapi import FastAPI, HTTPException, Request
 
+from agentlens.evaluators import Evaluator, guard_evaluators
 from agentlens.server.canned import REGISTRY, CannedResponse
 from agentlens.server.collector import TraceCollector
+from agentlens.server.guards import GuardConfig, guard_check_async
 from agentlens.server.mailbox import MailboxQueue, MailboxResponse
 from agentlens.server.models import (
     ChatCompletionRequest,
@@ -83,6 +85,7 @@ def create_app(
     timeout: float = 300.0,
     traces_dir: Path | None = None,
     session_id: str | None = None,
+    guards_config: GuardConfig | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AgentLens Proxy")
 
@@ -91,6 +94,16 @@ def create_app(
     collector = TraceCollector(traces_dir=traces_dir, session_id=session_id)
     active_scenario: list[str] = [scenario]
     mailbox: MailboxQueue | None = MailboxQueue(timeout=timeout) if mode == ServerMode.MAILBOX else None
+
+    # Guards: real-time evaluation hooks
+    active_guards: GuardConfig = guards_config or GuardConfig(enabled=False)
+    guard_evals: list[Evaluator] = guard_evaluators() if active_guards.enabled else []
+    # Lazy-init mailbox for escalation in non-mailbox modes
+    guard_mailbox: MailboxQueue | None = mailbox
+    if active_guards.enabled and mailbox is None:
+        has_escalate = any(r.action.value == "escalate" for r in active_guards.rules)
+        if has_escalate:
+            guard_mailbox = MailboxQueue(timeout=timeout)
 
     @app.get("/health")
     async def health() -> dict[str, str]:  # type: ignore[reportUnusedFunction]  # FastAPI route
@@ -142,6 +155,22 @@ def create_app(
         else:
             response, content, tool_calls_raw, usage = await _proxy_request(request, proxy_target)
 
+        # Real-time guard evaluation — may modify content/tool_calls before recording
+        if active_guards.enabled and guard_evals:
+            content, tool_calls_raw, _guard_result = await guard_check_async(
+                collector,
+                content,
+                tool_calls_raw,
+                request.messages,
+                usage,
+                active_guards,
+                guard_evals,
+                guard_mailbox,
+                request_start,
+            )
+            if _guard_result.triggered:
+                response = _build_openai_response(content, tool_calls_raw, usage, request.model)
+
         collector.record_llm_call(request.messages, content, tool_calls_raw, usage, start_time=request_start)
 
         resp_dict = response.model_dump()
@@ -178,6 +207,9 @@ def create_app(
         if mailbox is None:
             raise RuntimeError("Mailbox not initialized in mailbox mode")
         _register_mailbox_endpoints(app, mailbox)
+    elif guard_mailbox is not None and guard_mailbox is not mailbox:
+        # Register mailbox endpoints for guard escalation in non-mailbox modes
+        _register_mailbox_endpoints(app, guard_mailbox)
 
     return app
 
