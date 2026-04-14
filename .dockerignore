@@ -36,12 +36,12 @@ docs/
 Thumbs.db
 
 # Docs + internal working files
-*.md
+# (README.md is NOT excluded — hatchling references it in pyproject.toml for
+# the package long description and fails the wheel build without it.)
 TODOS.md
 CHECKS.md
 ARCHITECTURE.md
 CLAUDE.md
-README.md
 
 # Claude / agent memory / local settings
 .claude/

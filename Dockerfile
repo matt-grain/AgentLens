@@ -25,22 +25,27 @@ WORKDIR /app
 # reproducible compared to `pip install uv`.
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
-# Install dependencies only (no project code yet — maximise Docker layer cache
-# hits on unchanged uv.lock).
-COPY pyproject.toml uv.lock ./
+# Stage 1a: install dependencies ONLY (no project) — cached on uv.lock change.
+# --no-install-project skips the hatchling build of agentlens itself so this
+# layer only depends on pyproject.toml + uv.lock content hashes.
+COPY pyproject.toml uv.lock README.md ./
+RUN uv sync --frozen --no-dev --no-editable --no-install-project
+
+# Stage 1b: copy src/ and install the project into the venv. This step
+# re-runs whenever src/ changes but deps stay cached from 1a. --no-editable
+# builds a wheel and installs it (as opposed to a .pth editable install),
+# which means the runtime stage only needs .venv/ — src/ does NOT need to
+# ship in the final image.
+COPY src/ src/
 RUN uv sync --frozen --no-dev --no-editable
 
 # Stage 2: runtime
 FROM python:3.13-slim
 WORKDIR /app
 
-# Bring in the pre-built virtualenv from stage 1.
+# Bring in the pre-built virtualenv from stage 1 — agentlens is installed
+# inside it as a wheel, so the `agentlens` console script on PATH works.
 COPY --from=builder /app/.venv /app/.venv
-
-# Copy only what the CLI needs at runtime. Leave out tests, docs, benchmarks,
-# examples — keeps the image small and reviewable.
-COPY src/ src/
-COPY pyproject.toml ./
 
 ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONUNBUFFERED=1
