@@ -173,6 +173,11 @@ def create_app(
 
         collector.record_llm_call(request.messages, content, tool_calls_raw, usage, start_time=request_start)
 
+        # In mailbox mode each request is a standalone agent call — finalize immediately
+        # so the trace is persisted to disk and available via /traces.
+        if mode == ServerMode.MAILBOX:
+            collector.finalize()
+
         resp_dict = response.model_dump()
         if tool_calls_raw:
             resp_dict["choices"][0]["message"]["tool_calls"] = tool_calls_raw
@@ -188,6 +193,15 @@ def create_app(
         if match is None:
             raise HTTPException(status_code=404, detail=f"Trace {trace_id!r} not found")
         return match.model_dump(mode="json")
+
+    @app.post("/traces/finalize")
+    async def finalize_traces() -> dict[str, Any]:  # type: ignore[reportUnusedFunction]  # FastAPI route
+        """Flush pending spans into a finalized trace and persist to disk."""
+        before = len(collector.traces)
+        collector.finalize()
+        after = len(collector.traces)
+        created = after - before
+        return {"status": "finalized", "traces_created": created, "total_traces": after}
 
     @app.post("/traces/reset")
     async def reset_traces() -> dict[str, str]:  # type: ignore[reportUnusedFunction]  # FastAPI route

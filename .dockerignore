@@ -1,0 +1,56 @@
+# Only src/, pyproject.toml, and uv.lock need to land in the agentlens image.
+# Everything else is excluded for size, security, and build speed.
+
+# Python virtualenvs + caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Git / VCS
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Runtime / test artefacts
+traces/
+benchmarks/
+demo/
+examples/
+tests/
+docs/
+
+# IDE / editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Docs + internal working files
+*.md
+TODOS.md
+CHECKS.md
+ARCHITECTURE.md
+CLAUDE.md
+README.md
+
+# Claude / agent memory / local settings
+.claude/
+
+# Environment files
+.env
+.env.local
+.env.example
+
+# Docker helpers themselves
+Dockerfile
+.dockerignore
